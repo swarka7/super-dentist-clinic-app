@@ -3,7 +3,7 @@ Modern WPF clinic management for dentists — fast scheduling, clean records, an
 
 Why this exists: many small clinics still rely on spreadsheets or legacy software. Super Dentist is a clean, modern desktop alternative built to be fast, understandable, and maintainable.
 
-## Screenshots
+## 📸 Screenshots
 Add screenshots to `docs/screenshots/` and keep the filenames below so the README renders correctly.
 
 1. Dashboard / Today view  
@@ -21,10 +21,10 @@ Add screenshots to `docs/screenshots/` and keep the filenames below so the READM
 7. Reports  
    `docs/screenshots/screenshot-reports.png`
 
-## Overview
+## 🚀 Overview
 Super Dentist is a desktop application for small to mid-size dental clinics. It streamlines daily operations like managing doctors, patients, treatments, and appointments, with built-in reports to keep the team informed. It’s designed to be simple for front‑desk workflows while still solidly engineered for maintainability.
 
-## Key Features
+## ✨ Key Features
 - Modern WPF desktop app built with .NET 8
 - Clean MVVM architecture + Dependency Injection
 - SQLite database (auto-create + seeded demo data)
@@ -34,7 +34,7 @@ Super Dentist is a desktop application for small to mid-size dental clinics. It 
 - Structured logging for troubleshooting
 - Automated tests for core services
 
-## Tech Stack
+## 🛠 Tech Stack
 - C#, .NET 8
 - WPF
 - MVVM (CommunityToolkit.Mvvm)
@@ -43,7 +43,7 @@ Super Dentist is a desktop application for small to mid-size dental clinics. It 
 - Serilog logging
 - xUnit tests
 
-## Quick Start
+## ⚡ Quick Start
 Requirements:
 - Windows 10/11
 - .NET 8 SDK (or Visual Studio 2022)
@@ -61,10 +61,11 @@ SQLite and logs:
 - Override DB path: set `Database:Path` in `src/SuperDentist.App/appsettings.json` or `SUPERDENTIST_DB_PATH`
 - Logs: `%LOCALAPPDATA%\SuperDentist\logs\superdentist.log`
 
+## 🧪 Testing
 Run tests:
 `dotnet test "tests/SuperDentist.Tests/SuperDentist.Tests.csproj"`
 
-## Architecture Overview
+## 🧱 Architecture Overview
 Layer diagram:
 ```
 App (WPF UI)
@@ -82,7 +83,7 @@ Patterns used:
 - Repository + service interfaces for clean boundaries
 - DI for ViewModels and services
 
-## Demo Data + Domain Model
+## 🗄 Data & Seeding
 Seeded demo data is created on first run (doctors, patients, treatments, appointments, patient treatments).
 
 Main entities:
@@ -92,11 +93,25 @@ Main entities:
 - Appointment: date/time with doctor + patient
 - PatientTreatment: treatment status and billing info
 
-## Quality & Reliability
+## ✅ Quality & Reliability
 - Validation rules: required fields, numeric formats, email format, date/time formats
 - Errors are shown inline; forms reset cleanly after successful saves
 - Global exception handling with clear user messages
 - Logs written to `%LOCALAPPDATA%\SuperDentist\logs\superdentist.log`
 
-## Docs
+## 🧠 What I Learned
+- Refactoring legacy WPF into clean MVVM
+- Designing data layers with clear interfaces
+- Building validation and UX that feels polished
+- Structuring a desktop app for long‑term maintainability
+- Building a reliable data initialization pipeline with logging
+- Creating responsive, accessible layouts in WPF
+- Managing command state and validation lifecycle correctly
+
+## 🔮 Future Improvements
+- Calendar view with drag‑and‑drop scheduling
+- Advanced reporting and export (CSV/PDF)
+- Role‑based access and audit trails
+
+## 📚 Docs
 - Architecture details: `docs/ARCHITECTURE.md`
