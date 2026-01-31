@@ -1,0 +1,10 @@
+<Project>
+  <PropertyGroup>
+    <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
+    <Deterministic>true</Deterministic>
+    <BuildInParallel>false</BuildInParallel>
+    <RestoreBuildInParallel>false</RestoreBuildInParallel>
+    <RestoreUseStaticGraphEvaluation>false</RestoreUseStaticGraphEvaluation>
+    <MSBUILDFAILONDRIVEENUMERATINGWILDCARD>0</MSBUILDFAILONDRIVEENUMERATINGWILDCARD>
+  </PropertyGroup>
+</Project>

@@ -1,0 +1,43 @@
+<UserControl x:Class="SuperDentist.App.Views.PatientReportView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             mc:Ignorable="d">
+    <Grid Margin="24">
+        <Border Style="{StaticResource Card}">
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="*" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
+
+                <StackPanel>
+                    <TextBlock Text="Patients in Treatment" Style="{StaticResource HeadingText}" />
+                    <TextBlock Text="Active patients currently undergoing treatment." Style="{StaticResource SubtleText}" />
+                </StackPanel>
+
+                <DataGrid Grid.Row="1"
+                          x:Name="PatientsList"
+                          ItemsSource="{Binding PatientsInTreatment}"
+                          IsReadOnly="True">
+                    <DataGrid.Columns>
+                        <DataGridTextColumn Header="ID" Binding="{Binding Id}" Width="90" />
+                        <DataGridTextColumn Header="First Name" Binding="{Binding FirstName}" Width="120" />
+                        <DataGridTextColumn Header="Last Name" Binding="{Binding LastName}" Width="120" />
+                        <DataGridTextColumn Header="Phone" Binding="{Binding Phone}" Width="120" />
+                        <DataGridTextColumn Header="Email" Binding="{Binding Email}" Width="160" />
+                        <DataGridTextColumn Header="Doctor ID" Binding="{Binding DoctorId}" Width="100" />
+                    </DataGrid.Columns>
+                </DataGrid>
+
+                <Button Grid.Row="2"
+                        Content="Print"
+                        Width="120"
+                        Command="{Binding PrintCommand}"
+                        CommandParameter="{Binding ElementName=PatientsList}" />
+            </Grid>
+        </Border>
+    </Grid>
+</UserControl>

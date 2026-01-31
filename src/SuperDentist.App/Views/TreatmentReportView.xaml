@@ -1,0 +1,41 @@
+<UserControl x:Class="SuperDentist.App.Views.TreatmentReportView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             mc:Ignorable="d">
+    <Grid Margin="24">
+        <Border Style="{StaticResource Card}">
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="*" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
+
+                <StackPanel>
+                    <TextBlock Text="Treatment Report" Style="{StaticResource HeadingText}" />
+                    <TextBlock Text="Full treatment catalog for review." Style="{StaticResource SubtleText}" />
+                </StackPanel>
+
+                <DataGrid Grid.Row="1"
+                          x:Name="TreatmentsList"
+                          ItemsSource="{Binding Treatments}"
+                          IsReadOnly="True">
+                    <DataGrid.Columns>
+                        <DataGridTextColumn Header="Number" Binding="{Binding Number}" Width="110" />
+                        <DataGridTextColumn Header="Type" Binding="{Binding Type}" Width="160" />
+                        <DataGridTextColumn Header="Price" Binding="{Binding Price}" Width="90" />
+                        <DataGridTextColumn Header="Tools" Binding="{Binding Tools}" Width="180" />
+                    </DataGrid.Columns>
+                </DataGrid>
+
+                <Button Grid.Row="2"
+                        Content="Print"
+                        Width="120"
+                        Command="{Binding PrintCommand}"
+                        CommandParameter="{Binding ElementName=TreatmentsList}" />
+            </Grid>
+        </Border>
+    </Grid>
+</UserControl>

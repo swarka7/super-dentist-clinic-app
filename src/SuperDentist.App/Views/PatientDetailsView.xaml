@@ -1,0 +1,53 @@
+<UserControl x:Class="SuperDentist.App.Views.PatientDetailsView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             mc:Ignorable="d">
+    <Grid Margin="24">
+        <Border Style="{StaticResource Card}">
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="*" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
+
+                <StackPanel>
+                    <TextBlock Text="Patients by Doctor" Style="{StaticResource HeadingText}" />
+                    <TextBlock Text="Select a doctor to view assigned patients." Style="{StaticResource SubtleText}" />
+                </StackPanel>
+
+                <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="0,12,0,0">
+                    <ComboBox ItemsSource="{Binding Doctors}"
+                              DisplayMemberPath="Id"
+                              SelectedValuePath="Id"
+                              SelectedValue="{Binding SelectedDoctorId, UpdateSourceTrigger=PropertyChanged}"
+                              Width="200" />
+                    <Button Content="Load" Command="{Binding FilterCommand}" Margin="8,6,0,0" Width="100" />
+                </StackPanel>
+
+                <DataGrid Grid.Row="2"
+                          x:Name="PatientsList"
+                          ItemsSource="{Binding Patients}"
+                          IsReadOnly="True">
+                    <DataGrid.Columns>
+                        <DataGridTextColumn Header="ID" Binding="{Binding Id}" Width="90" />
+                        <DataGridTextColumn Header="First Name" Binding="{Binding FirstName}" Width="120" />
+                        <DataGridTextColumn Header="Last Name" Binding="{Binding LastName}" Width="120" />
+                        <DataGridTextColumn Header="Phone" Binding="{Binding Phone}" Width="120" />
+                        <DataGridTextColumn Header="Email" Binding="{Binding Email}" Width="160" />
+                        <DataGridTextColumn Header="Status" Binding="{Binding TreatmentStatus}" Width="90" />
+                    </DataGrid.Columns>
+                </DataGrid>
+
+                <Button Grid.Row="3"
+                        Content="Print"
+                        Width="120"
+                        Command="{Binding PrintCommand}"
+                        CommandParameter="{Binding ElementName=PatientsList}" />
+            </Grid>
+        </Border>
+    </Grid>
+</UserControl>
