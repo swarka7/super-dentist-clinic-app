@@ -4,8 +4,6 @@ Modern WPF clinic management for dentists — fast scheduling, clean records, an
 Why this exists: many small clinics still rely on spreadsheets or legacy software. Super Dentist is a clean, modern desktop alternative built to be fast, understandable, and maintainable.
 
 ## 📸 Screenshots
-Add screenshots to `docs/screenshots/` and keep the filenames below so the README renders correctly.
-
 1. Dashboard / Today view  
    `docs/screenshots/screenshot-dashboard.png`
 2. Doctors management  
