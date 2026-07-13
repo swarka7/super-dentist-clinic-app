@@ -1,12 +1,6 @@
-using Microsoft.Extensions.Logging.Abstractions;
-using Microsoft.Extensions.Options;
 using SuperDentist.Core;
-using SuperDentist.Core.Options;
-using SuperDentist.Infrastructure.Data;
 using SuperDentist.Infrastructure.Repositories;
-using SuperDentist.Infrastructure.Services;
-using System;
-using System.IO;
+using SuperDentist.Application.Services;
 using System.Threading.Tasks;
 using Xunit;
 
@@ -14,40 +8,133 @@ namespace SuperDentist.Tests
 {
     public sealed class AppointmentServiceTests
     {
+        private const string SlotConflictMessage = "This time slot is already booked for the selected doctor.";
+        private const string PatientConflictMessage = "This patient already has an appointment.";
+
         [Fact]
-        public async Task PreventsDoubleBookingForDoctor()
+        public async Task AddAsync_WhenDoctorSlotAlreadyBooked_RejectsConflictingAppointment()
         {
-            string databasePath = Path.Combine(Path.GetTempPath(), $"superdentist-test-{Guid.NewGuid():N}.db");
-            var options = Options.Create(new DatabaseOptions { Path = databasePath });
-            var connectionFactory = new SqliteConnectionFactory(options);
-            var initializer = new SqliteDatabaseInitializer(connectionFactory, NullLogger<SqliteDatabaseInitializer>.Instance);
-            await initializer.InitializeAsync();
+            using var database = await SqliteTestDatabase.CreateAsync();
+            var service = CreateService(database);
 
-            var repository = new SqliteAppointmentRepository(connectionFactory);
-            var service = new AppointmentService(repository);
-
-            var appointment = new Appointment
-            {
-                PatientId = "200000010",
-                DoctorId = "100000001",
-                Date = DateTime.Today.ToString("yyyy-MM-dd"),
-                Time = "10:00",
-                TreatmentNumber = "T001"
-            };
+            var appointment = CreateAppointment(
+                patientId: "900000001",
+                doctorId: "800000001",
+                date: "2030-01-15",
+                time: "09:00",
+                treatmentNumber: "T001");
 
             var first = await service.AddAsync(appointment);
-            Assert.True(first.Success);
+            Assert.True(first.Success, first.ErrorMessage);
 
-            var second = await service.AddAsync(new Appointment
-            {
-                PatientId = "200000011",
-                DoctorId = "100000001",
-                Date = appointment.Date,
-                Time = appointment.Time,
-                TreatmentNumber = "T002"
-            });
+            var second = await service.AddAsync(CreateAppointment(
+                patientId: "900000002",
+                doctorId: appointment.DoctorId,
+                date: appointment.Date,
+                time: appointment.Time,
+                treatmentNumber: "T002"));
 
             Assert.False(second.Success);
+            Assert.Equal(SlotConflictMessage, second.ErrorMessage);
+        }
+
+        [Fact]
+        public async Task AddAsync_WhenPatientAlreadyHasAppointment_RejectsConflictingAppointment()
+        {
+            using var database = await SqliteTestDatabase.CreateAsync();
+            var service = CreateService(database);
+
+            var appointment = CreateAppointment(
+                patientId: "900000101",
+                doctorId: "800000101",
+                date: "2030-02-01",
+                time: "10:00",
+                treatmentNumber: "T101");
+
+            var first = await service.AddAsync(appointment);
+            Assert.True(first.Success, first.ErrorMessage);
+
+            var second = await service.AddAsync(CreateAppointment(
+                patientId: appointment.PatientId,
+                doctorId: "800000102",
+                date: "2030-02-02",
+                time: "11:00",
+                treatmentNumber: "T102"));
+
+            Assert.False(second.Success);
+            Assert.Equal(PatientConflictMessage, second.ErrorMessage);
+        }
+
+        [Fact]
+        public async Task AddAsync_WhenSameTimeDifferentDoctor_AllowsAppointment()
+        {
+            using var database = await SqliteTestDatabase.CreateAsync();
+            var service = CreateService(database);
+
+            var first = await service.AddAsync(CreateAppointment(
+                patientId: "900000201",
+                doctorId: "800000201",
+                date: "2030-03-01",
+                time: "12:00",
+                treatmentNumber: "T201"));
+
+            Assert.True(first.Success, first.ErrorMessage);
+
+            var second = await service.AddAsync(CreateAppointment(
+                patientId: "900000202",
+                doctorId: "800000202",
+                date: "2030-03-01",
+                time: "12:00",
+                treatmentNumber: "T202"));
+
+            Assert.True(second.Success, second.ErrorMessage);
+        }
+
+        [Fact]
+        public async Task AddAsync_WhenSameDoctorDifferentTime_AllowsAppointment()
+        {
+            using var database = await SqliteTestDatabase.CreateAsync();
+            var service = CreateService(database);
+
+            var first = await service.AddAsync(CreateAppointment(
+                patientId: "900000301",
+                doctorId: "800000301",
+                date: "2030-04-01",
+                time: "13:00",
+                treatmentNumber: "T301"));
+
+            Assert.True(first.Success, first.ErrorMessage);
+
+            var second = await service.AddAsync(CreateAppointment(
+                patientId: "900000302",
+                doctorId: "800000301",
+                date: "2030-04-01",
+                time: "13:30",
+                treatmentNumber: "T302"));
+
+            Assert.True(second.Success, second.ErrorMessage);
+        }
+
+        private static AppointmentService CreateService(SqliteTestDatabase database)
+        {
+            return new AppointmentService(new SqliteAppointmentRepository(database.ConnectionFactory));
+        }
+
+        private static Appointment CreateAppointment(
+            string patientId,
+            string doctorId,
+            string date,
+            string time,
+            string treatmentNumber)
+        {
+            return new Appointment
+            {
+                PatientId = patientId,
+                DoctorId = doctorId,
+                Date = date,
+                Time = time,
+                TreatmentNumber = treatmentNumber
+            };
         }
     }
 }

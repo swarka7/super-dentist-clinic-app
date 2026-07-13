@@ -1,0 +1,20 @@
+using Microsoft.Extensions.DependencyInjection;
+using SuperDentist.Application.Services;
+using SuperDentist.Core.Services;
+
+namespace SuperDentist.Application
+{
+    public static class DependencyInjection
+    {
+        public static IServiceCollection AddSuperDentistApplication(this IServiceCollection services)
+        {
+            services.AddSingleton<IDoctorService, DoctorService>();
+            services.AddSingleton<IPatientService, PatientService>();
+            services.AddSingleton<ITreatmentService, TreatmentService>();
+            services.AddSingleton<IAppointmentService, AppointmentService>();
+            services.AddSingleton<IPatientTreatmentService, PatientTreatmentService>();
+
+            return services;
+        }
+    }
+}

@@ -8,6 +8,14 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "SuperDentist.Core", "src\Su
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "SuperDentist.Infrastructure", "src\SuperDentist.Infrastructure\SuperDentist.Infrastructure.csproj", "{9932E37B-3F3C-4F9E-80EE-B4464D287BA0}"
 EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "tests", "tests", "{B9772D39-F966-4B2D-9266-DC9C16A142D0}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SuperDentist.Tests", "tests\SuperDentist.Tests\SuperDentist.Tests.csproj", "{45A73C85-FBAC-4B44-AA3A-421692DF39ED}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src", "src", "{451011A9-CF99-4633-AA53-346E5722A1A6}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SuperDentist.Application", "src\SuperDentist.Application\SuperDentist.Application.csproj", "{4BAC27A7-35A5-4E23-9177-61BD7F147B8E}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -26,11 +34,23 @@ Global
 		{9932E37B-3F3C-4F9E-80EE-B4464D287BA0}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{9932E37B-3F3C-4F9E-80EE-B4464D287BA0}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{9932E37B-3F3C-4F9E-80EE-B4464D287BA0}.Release|Any CPU.Build.0 = Release|Any CPU
+		{45A73C85-FBAC-4B44-AA3A-421692DF39ED}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{45A73C85-FBAC-4B44-AA3A-421692DF39ED}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{45A73C85-FBAC-4B44-AA3A-421692DF39ED}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{45A73C85-FBAC-4B44-AA3A-421692DF39ED}.Release|Any CPU.Build.0 = Release|Any CPU
+		{4BAC27A7-35A5-4E23-9177-61BD7F147B8E}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{4BAC27A7-35A5-4E23-9177-61BD7F147B8E}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{4BAC27A7-35A5-4E23-9177-61BD7F147B8E}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{4BAC27A7-35A5-4E23-9177-61BD7F147B8E}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {2D054C29-4D0B-46B6-9AA8-92E016AD842C}
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{45A73C85-FBAC-4B44-AA3A-421692DF39ED} = {B9772D39-F966-4B2D-9266-DC9C16A142D0}
+		{4BAC27A7-35A5-4E23-9177-61BD7F147B8E} = {451011A9-CF99-4633-AA53-346E5722A1A6}
 	EndGlobalSection
 EndGlobal

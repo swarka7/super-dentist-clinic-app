@@ -3,11 +3,9 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Serilog;
 using SuperDentist.Core.Options;
-using SuperDentist.Core.Repositories;
 using SuperDentist.Core.Services;
-using SuperDentist.Infrastructure.Data;
-using SuperDentist.Infrastructure.Repositories;
-using SuperDentist.Infrastructure.Services;
+using SuperDentist.Application;
+using SuperDentist.Infrastructure;
 using SuperDentist.App.Services;
 using SuperDentist.App.ViewModels;
 using System;
@@ -16,7 +14,7 @@ using System.Windows;
 
 namespace SuperDentist.App
 {
-    public partial class App : Application
+    public partial class App : System.Windows.Application
     {
         private IHost? _host;
 
@@ -48,21 +46,8 @@ namespace SuperDentist.App
                 .ConfigureServices((context, services) =>
                 {
                     services.Configure<DatabaseOptions>(context.Configuration.GetSection("Database"));
-
-                    services.AddSingleton<ISqliteConnectionFactory, SqliteConnectionFactory>();
-                    services.AddSingleton<IDatabaseInitializer, SqliteDatabaseInitializer>();
-
-                    services.AddSingleton<IDoctorRepository, SqliteDoctorRepository>();
-                    services.AddSingleton<IPatientRepository, SqlitePatientRepository>();
-                    services.AddSingleton<ITreatmentRepository, SqliteTreatmentRepository>();
-                    services.AddSingleton<IAppointmentRepository, SqliteAppointmentRepository>();
-                    services.AddSingleton<IPatientTreatmentRepository, SqlitePatientTreatmentRepository>();
-
-                    services.AddSingleton<IDoctorService, DoctorService>();
-                    services.AddSingleton<IPatientService, PatientService>();
-                    services.AddSingleton<ITreatmentService, TreatmentService>();
-                    services.AddSingleton<IAppointmentService, AppointmentService>();
-                    services.AddSingleton<IPatientTreatmentService, PatientTreatmentService>();
+                    services.AddSuperDentistInfrastructure();
+                    services.AddSuperDentistApplication();
 
                     services.AddSingleton<IPrintService, PrintService>();
                     services.AddSingleton<IMessageService, MessageService>();

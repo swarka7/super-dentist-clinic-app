@@ -1,12 +1,6 @@
-using Microsoft.Extensions.Logging.Abstractions;
-using Microsoft.Extensions.Options;
 using SuperDentist.Core;
-using SuperDentist.Core.Options;
-using SuperDentist.Infrastructure.Data;
 using SuperDentist.Infrastructure.Repositories;
-using SuperDentist.Infrastructure.Services;
-using System;
-using System.IO;
+using SuperDentist.Application.Services;
 using System.Threading.Tasks;
 using Xunit;
 
@@ -17,13 +11,8 @@ namespace SuperDentist.Tests
         [Fact]
         public async Task AddAndRetrieveDoctor()
         {
-            string databasePath = Path.Combine(Path.GetTempPath(), $"superdentist-test-{Guid.NewGuid():N}.db");
-            var options = Options.Create(new DatabaseOptions { Path = databasePath });
-            var connectionFactory = new SqliteConnectionFactory(options);
-            var initializer = new SqliteDatabaseInitializer(connectionFactory, NullLogger<SqliteDatabaseInitializer>.Instance);
-            await initializer.InitializeAsync();
-
-            var repository = new SqliteDoctorRepository(connectionFactory);
+            using var database = await SqliteTestDatabase.CreateAsync();
+            var repository = new SqliteDoctorRepository(database.ConnectionFactory);
             var service = new DoctorService(repository);
 
             var doctor = new Doctor
@@ -39,7 +28,7 @@ namespace SuperDentist.Tests
             };
 
             var result = await service.AddAsync(doctor);
-            Assert.True(result.Success);
+            Assert.True(result.Success, result.ErrorMessage);
 
             var fetched = await service.GetByIdAsync("999000001");
             Assert.NotNull(fetched);

@@ -8,6 +8,7 @@
   <ItemGroup>
     <ProjectReference Include="..\..\src\SuperDentist.Core\SuperDentist.Core.csproj" />
     <ProjectReference Include="..\..\src\SuperDentist.Infrastructure\SuperDentist.Infrastructure.csproj" />
+    <ProjectReference Include="..\..\src\SuperDentist.Application\SuperDentist.Application.csproj" />
   </ItemGroup>
 
   <ItemGroup>

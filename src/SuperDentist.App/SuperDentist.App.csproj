@@ -16,6 +16,7 @@
   <ItemGroup>
     <ProjectReference Include="$(MSBuildThisFileDirectory)..\SuperDentist.Core\SuperDentist.Core.csproj" />
     <ProjectReference Include="$(MSBuildThisFileDirectory)..\SuperDentist.Infrastructure\SuperDentist.Infrastructure.csproj" />
+    <ProjectReference Include="..\SuperDentist.Application\SuperDentist.Application.csproj" />
   </ItemGroup>
 
 

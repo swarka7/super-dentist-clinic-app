@@ -6,7 +6,7 @@ using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace SuperDentist.Infrastructure.Services
+namespace SuperDentist.Application.Services
 {
     public sealed class TreatmentService : ITreatmentService
     {
