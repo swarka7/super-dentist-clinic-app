@@ -1,6 +1,6 @@
 # Architecture Overview
 
-SuperDentist uses clean dependency boundaries with two .NET composition roots, the WPF operations client and a read-only ASP.NET Core reporting API, plus a separate React web client.
+SuperDentist uses clean dependency boundaries with two .NET composition roots, the WPF operations client and a read-only ASP.NET Core reporting API, plus a separate React web client. Delivery automation verifies these boundaries without introducing runtime dependencies.
 
 ## Solution Layout
 - `src/SuperDentist.App`
@@ -23,6 +23,10 @@ SuperDentist uses clean dependency boundaries with two .NET composition roots, t
   - SQLite entity/audit repositories and persistence-specific SQL
 - `tests/SuperDentist.Tests`
   - xUnit unit, SQLite integration, dashboard, and in-process API tests
+- `.github/workflows/ci.yml`
+  - Independent backend and frontend verification jobs plus API and web build artifacts
+- `scripts`
+  - Owned-process development launchers and focused repository verification commands
 
 ## Dependency Direction
 ```
@@ -150,6 +154,20 @@ Persistence timestamps are excluded because the audit entry has its own timestam
 Audit persistence is append-only. `IAuditRepository` exposes only add and search operations, and migration 3 creates SQLite triggers that reject direct updates and deletes. There is currently no retention or archival policy.
 
 The WPF Audit History view is read-only. It displays newest-first records, UTC and local timestamps, filters, correlation IDs, and formatted before/after JSON for the selected entry.
+
+## Transaction and Audit Flow
+Write operations remain exclusive to the WPF client and cross the following boundary:
+```
+WPF command
+  -> Application validation and conflict checks
+  -> IApplicationTransaction
+  -> entity read/mutation + AuditService append
+  -> one SQLite connection and transaction
+  -> commit, or rollback on any failure
+```
+
+The entity repositories and audit repository join the same Infrastructure-owned transaction scope. Validation failures never enter a transaction, and persistence or serialization failures roll back both the clinic mutation and audit append. The API and React client do not participate in this flow because they expose reads only.
+
 ## Domain Models
 - `Doctor`: Id, FirstName, LastName, Phone, Address, Email, Specialization, Salary, CreatedAtUtc, UpdatedAtUtc
 - `Patient`: Id, FirstName, LastName, Phone, Address, Email, Age, TreatmentStatus, DoctorId, CreatedAtUtc, UpdatedAtUtc
@@ -175,22 +193,25 @@ Web:
 2. React Router loads the requested dashboard route, including direct navigation.
 3. Route pages call the centralized typed API client and render controlled loading, success, empty, or error states.
 
+The root development launchers start the API and Vite as explicit child processes, wait for both health endpoints, and stop only those owned children when the launcher exits. They do not search ports or terminate unrelated processes.
+
+## Delivery Automation
+GitHub Actions runs on pushes to `main`, pull requests targeting `main`, and manual dispatch. The Windows backend job restores with a NuGet cache, builds the full solution in Release with warnings promoted to errors, runs all .NET tests, and publishes the API as an artifact. The Linux frontend job uses the Node version in `.nvmrc`, an npm cache, `npm ci`, type checking, linting, one-shot Vitest execution, and a production Vite build before publishing `dist` as an artifact.
+
+The workflow has read-only repository permissions, no secrets, and no deployment step. Local verification scripts execute the same logical checks and keep backend and frontend failures independently diagnosable.
+
 ## Logging
 - WPF Serilog writes logs to `%LOCALAPPDATA%\SuperDentist\logs\superdentist.log`.
 - The API uses structured `ILogger` request and exception events through ASP.NET Core providers.
 - Migration and initialization failures are logged with the failing migration version/name where applicable.
 
-## Testing
-- Application service unit tests can run with simple fake repositories and no SQLite dependency.
-- Appointment conflict tests use deterministic, test-owned data rather than production demo seed data.
-- SQLite-backed tests create isolated temporary databases and clean them up afterward.
-- Test databases use the production migration mechanism instead of a duplicated test schema.
-- Migration tests cover empty database upgrades, baseline and version-2 upgrades without data loss, foreign-key enforcement, restrictive deletes, idempotency, audit timestamps, and migration 3.
-- Audit tests cover SQLite-free serialization, actor/UTC capture, before/after values, failed-operation suppression, atomic rollback, filtering, newest-first ordering, initializer idempotency, and persistence across reopened connections.
-- Dashboard aggregation is unit tested with deterministic, SQLite-free service fakes.
-- API tests use `WebApplicationFactory`, isolated temporary SQLite databases, and the production migration mechanism.
-- API coverage includes startup/DI, Swagger, health, metrics, filters, limits, 404/400 behavior, audit queries, and generic 500 responses.
-- React behavior tests use Vitest, jsdom, and Testing Library while mocking the centralized API boundary.
-- Frontend coverage includes dashboard loading/success/empty/retry, doctor search and pagination, appointment filtering, and safe audit JSON inspection.
+## Testing Boundaries
+- Core/Application unit boundary: simple fakes exercise business services, audit serialization, conflict behavior, and dashboard aggregation without SQLite, WPF, or ASP.NET Core.
+- Infrastructure integration boundary: each test owns a temporary SQLite database, initializes it through production migrations, and removes it afterward. Coverage includes constraints, transactions, rollback, append-only audit storage, migration compatibility, and reopen persistence.
+- API host boundary: `WebApplicationFactory` starts the real ASP.NET Core composition root against an isolated migrated database. Coverage includes DI/startup, Swagger, health, DTOs, filtering, limits, 404/400 behavior, audit queries, dashboard results, and sanitized 500 responses.
+- React boundary: Vitest, jsdom, and Testing Library mock only the centralized API client. Coverage includes dashboard loading/success/empty/retry, doctor search and pagination, appointment filtering, and safe audit JSON inspection.
+- Delivery boundary: GitHub Actions repeats Release backend verification and deterministic frontend lockfile verification on clean hosted runners.
+
+Appointment fixtures use deterministic test-owned records rather than demo seed assumptions. No test project maintains a duplicate production schema.
 
 The existing repository contracts load full entity collections before Application filtering and paging. HTTP result sizes are bounded, but database-side projections and count queries remain a scalability improvement for larger datasets. Today/upcoming calculations use the API host local date because appointment dates remain legacy strings and no clinic time-zone setting exists yet.

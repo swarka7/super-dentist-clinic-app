@@ -5,6 +5,9 @@ obj/
 # User-specific files
 .vs/
 .vscode/
+.idea/
+*.suo
+*.user
 
 # Logs and diagnostics
 *.log
@@ -24,7 +27,10 @@ obj/
 
 # Local tooling
 .dotnet_home/
+.nuget/
 .runtime/
+artifacts/
+TestResults/
 
 # Frontend dependencies and build/test outputs
 node_modules/
@@ -38,5 +44,6 @@ coverage/
 !.env.example
 
 # OS files
+.DS_Store
 Thumbs.db
 Desktop.ini

@@ -1,9 +1,13 @@
 # Super Dentist
-Modern .NET 8 clinic management with a WPF operations client, ASP.NET Core reporting API, and React operations dashboard.
+[![CI](https://github.com/swarka7/super-dentist-clinic-app/actions/workflows/ci.yml/badge.svg)](https://github.com/swarka7/super-dentist-clinic-app/actions/workflows/ci.yml)
+
+Full-stack .NET 8 clinic management with a WPF operations client, ASP.NET Core reporting API, and React operations dashboard.
 
 Why this exists: many small clinics still rely on spreadsheets or legacy software. Super Dentist is a clean, modern clinic platform built to be fast, understandable, and maintainable.
 
 ## 📸 Screenshots
+WPF client captures included in the repository:
+
 1. Dashboard / Today view  
    `docs/screenshots/screenshot-dashboard.png`
 2. Doctors management  
@@ -18,6 +22,13 @@ Why this exists: many small clinics still rely on spreadsheets or legacy softwar
    `docs/screenshots/screenshot-patient-treatments.png`
 7. Reports  
    `docs/screenshots/screenshot-reports.png`
+
+Web portfolio captures should use these exact paths when captured from live API data:
+
+1. Operations dashboard
+   `docs/screenshots/screenshot-web-dashboard.png`
+2. Read-only audit history
+   `docs/screenshots/screenshot-web-audit.png`
 
 ## 🚀 Overview
 Super Dentist is a clinic management platform for small to mid-size dental clinics. Its WPF client handles daily write operations such as doctors, patients, treatments, and appointments. A read-only ASP.NET Core API serves the React operations dashboard and other reporting consumers without duplicating business logic. The platform is designed for simple front-desk workflows with maintainable engineering boundaries.
@@ -50,28 +61,54 @@ Super Dentist is a clinic management platform for small to mid-size dental clini
 - SQLite
 - Serilog logging
 - xUnit tests
+- Vitest and Testing Library
+- GitHub Actions CI and build artifacts
 
 ## ⚡ Quick Start
 Requirements:
-- Windows 10/11
-- .NET 8 SDK (or Visual Studio 2022)
-- Node.js 20.19+ or 22.12+ for the React client
+- Windows 10/11 to run the WPF client; the API and React client are cross-platform
+- The .NET SDK selected by `global.json`
+- The Node.js version selected by `.nvmrc`
 
-Run the WPF app:
+Install dependencies once:
+```powershell
+dotnet restore "Super Dentist.sln"
+Push-Location src/SuperDentist.Web
+npm ci
+Pop-Location
+```
+
+Start the API and React dashboard together:
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\start-dev.ps1
+```
+
+The dependency-free cross-platform alternative is:
+```shell
+node scripts/start-dev.mjs
+```
+
+Both launchers verify required tools, build the API, start only the API and Vite child processes they own, and stop those children on exit. The PowerShell command bypasses signing policy only for that process and does not alter machine policy. They expose:
+- Dashboard: `http://localhost:5173`
+- API: `http://localhost:5080`
+- Swagger: `http://localhost:5080/swagger`
+- Health: `http://localhost:5080/health`
+
+Run the WPF write client separately:
 1. `dotnet build "Super Dentist.sln"`
 2. `dotnet run --project src/SuperDentist.App/SuperDentist.App.csproj`
 
 The application project is `SuperDentist.App`. The executable/assembly is branded as `Super Dentist`, so local build output is named `Super Dentist.exe`.
 
-Run the reporting API:
+Manual API startup:
 1. `dotnet run --project src/SuperDentist.Api/SuperDentist.Api.csproj`
 2. Open `http://localhost:5080/swagger` or call `http://localhost:5080/health`.
 
 The development API URL is defined in `src/SuperDentist.Api/Properties/launchSettings.json` and can be overridden with standard ASP.NET Core configuration such as `ASPNETCORE_URLS`. Development CORS permits only `http://localhost:5173` by default; production does not enable a permissive CORS policy.
 
-Run the React dashboard in a second terminal:
+Manual React startup in a second terminal:
 1. `cd src/SuperDentist.Web`
-2. `npm install`
+2. `npm ci`
 3. `npm run dev`
 4. Open `http://localhost:5173`.
 
@@ -88,17 +125,26 @@ SQLite and logs:
 - Logs: `%LOCALAPPDATA%\SuperDentist\logs\superdentist.log`
 
 ## 🧪 Testing
-Backend build and tests:
+Run the complete repository verification on Windows:
 ```powershell
-dotnet build "Super Dentist.sln"
-dotnet test "Super Dentist.sln"
+powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-all.ps1
 ```
 
-Frontend checks (from `src/SuperDentist.Web`):
+The focused scripts are `scripts/verify-backend.ps1` and `scripts/verify-frontend.ps1`. The backend script restores, performs a Release build with warnings promoted to errors, and runs all .NET tests. The frontend script performs a clean lockfile install, type checking, linting, tests, and a production build.
+
+Equivalent backend commands:
 ```powershell
+dotnet restore "Super Dentist.sln"
+dotnet build "Super Dentist.sln" -c Release --no-restore -warnaserror
+dotnet test "Super Dentist.sln" -c Release --no-build --no-restore
+```
+
+Equivalent frontend commands from `src/SuperDentist.Web`:
+```powershell
+npm ci
 npm run typecheck
-npm test
 npm run lint
+npm test
 npm run build
 ```
 
@@ -111,6 +157,13 @@ The test suite includes:
 - API integration tests that start the real ASP.NET Core host against isolated, migrated temporary SQLite databases.
 - SQLite-free dashboard aggregation tests with deterministic service fakes.
 - Frontend behavior tests for dashboard states, retry, search, filters, audit JSON inspection, and pagination with the API boundary mocked.
+
+## Continuous Integration
+`.github/workflows/ci.yml` runs for pushes to `main`, pull requests targeting `main`, and manual dispatches. Its independent jobs are:
+- Backend on Windows: cached restore, warning-as-error Release build, .NET tests, and a published API artifact.
+- Frontend on Linux: cached `npm ci`, type checking, linting, one-shot tests, production build, and a `dist` artifact.
+
+CI has read-only repository permissions and contains no deployment credentials. Artifacts are verification outputs, not a deployment pipeline.
 
 ## 🧱 Architecture Overview
 Layer diagram:
@@ -248,6 +301,16 @@ The clinic mutation and required audit insert execute in one SQLite transaction.
 - Calendar view with drag‑and‑drop scheduling
 - Advanced reporting and export (CSV/PDF)
 - Authenticated users and role-based authorization integrated with the existing actor abstraction
+
+## Current Limitations
+- Authentication and authorization are not implemented; the API and dashboard are for trusted/local evaluation only.
+- `LocalUser` is an audit label, not verified identity.
+- SQLite is appropriate for this single-clinic deployment model, not horizontally scaled multi-node writes.
+- The React client and API are read-only; WPF remains the only write client.
+- Application paging currently follows repository reads rather than database projections.
+- Appointment dates remain legacy strings and use the API host's local date; no clinic time-zone setting exists.
+- Currency presentation currently assumes USD because the domain has no clinic currency configuration.
+- CI publishes verification artifacts but performs no environment deployment.
 
 ## 📚 Docs
 - Architecture details: `docs/ARCHITECTURE.md`
