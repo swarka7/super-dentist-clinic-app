@@ -24,6 +24,18 @@ obj/
 
 # Local tooling
 .dotnet_home/
+.runtime/
+
+# Frontend dependencies and build/test outputs
+node_modules/
+dist/
+coverage/
+*.tsbuildinfo
+
+# Local frontend environment overrides (commit examples only)
+.env
+.env.*
+!.env.example
 
 # OS files
 Thumbs.db

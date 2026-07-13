@@ -1,7 +1,7 @@
 # Super Dentist
-Modern .NET 8 clinic management with a WPF operations client and a read-only ASP.NET Core reporting API.
+Modern .NET 8 clinic management with a WPF operations client, ASP.NET Core reporting API, and React operations dashboard.
 
-Why this exists: many small clinics still rely on spreadsheets or legacy software. Super Dentist is a clean, modern desktop alternative built to be fast, understandable, and maintainable.
+Why this exists: many small clinics still rely on spreadsheets or legacy software. Super Dentist is a clean, modern clinic platform built to be fast, understandable, and maintainable.
 
 ## 📸 Screenshots
 1. Dashboard / Today view  
@@ -20,11 +20,12 @@ Why this exists: many small clinics still rely on spreadsheets or legacy softwar
    `docs/screenshots/screenshot-reports.png`
 
 ## 🚀 Overview
-Super Dentist is a clinic management platform for small to mid-size dental clinics. Its WPF client handles daily operations such as doctors, patients, treatments, and appointments, while its read-only API exposes reporting data for additional clients. It is designed for simple front-desk workflows with maintainable engineering boundaries.
+Super Dentist is a clinic management platform for small to mid-size dental clinics. Its WPF client handles daily write operations such as doctors, patients, treatments, and appointments. A read-only ASP.NET Core API serves the React operations dashboard and other reporting consumers without duplicating business logic. The platform is designed for simple front-desk workflows with maintainable engineering boundaries.
 
 ## ✨ Key Features
 - Modern WPF desktop app built with .NET 8
 - Read-only ASP.NET Core Web API with OpenAPI/Swagger
+- Responsive React and TypeScript clinic operations dashboard
 - Clean MVVM architecture + Dependency Injection
 - Application layer for business use cases and service implementations
 - Application-owned clinic list queries and dashboard aggregation
@@ -42,6 +43,7 @@ Super Dentist is a clinic management platform for small to mid-size dental clini
 - C#, .NET 8
 - WPF
 - ASP.NET Core Web API
+- React, TypeScript, and Vite
 - OpenAPI / Swagger
 - MVVM (CommunityToolkit.Mvvm)
 - Dependency Injection (Microsoft.Extensions.*)
@@ -53,6 +55,7 @@ Super Dentist is a clinic management platform for small to mid-size dental clini
 Requirements:
 - Windows 10/11
 - .NET 8 SDK (or Visual Studio 2022)
+- Node.js 20.19+ or 22.12+ for the React client
 
 Run the WPF app:
 1. `dotnet build "Super Dentist.sln"`
@@ -66,6 +69,14 @@ Run the reporting API:
 
 The development API URL is defined in `src/SuperDentist.Api/Properties/launchSettings.json` and can be overridden with standard ASP.NET Core configuration such as `ASPNETCORE_URLS`. Development CORS permits only `http://localhost:5173` by default; production does not enable a permissive CORS policy.
 
+Run the React dashboard in a second terminal:
+1. `cd src/SuperDentist.Web`
+2. `npm install`
+3. `npm run dev`
+4. Open `http://localhost:5173`.
+
+The typed frontend API client defaults to `http://localhost:5080`. Set `VITE_API_BASE_URL` in a local environment or local `.env` file to override it; `.env.example` contains the non-secret development example. Vite environment files other than `.env.example` are ignored.
+
 First run behavior:
 - A local SQLite database is created automatically
 - Schema migrations run before the app starts using the database
@@ -77,8 +88,19 @@ SQLite and logs:
 - Logs: `%LOCALAPPDATA%\SuperDentist\logs\superdentist.log`
 
 ## 🧪 Testing
-Run tests:
-`dotnet test "Super Dentist.sln"`
+Backend build and tests:
+```powershell
+dotnet build "Super Dentist.sln"
+dotnet test "Super Dentist.sln"
+```
+
+Frontend checks (from `src/SuperDentist.Web`):
+```powershell
+npm run typecheck
+npm test
+npm run lint
+npm run build
+```
 
 The test suite includes:
 - Application service unit tests using simple fake repositories, proving business use cases can be tested without SQLite.
@@ -88,10 +110,13 @@ The test suite includes:
 - Audit tests for actor and UTC capture, deterministic JSON snapshots, filtering, newest-first ordering, transaction rollback, initialization idempotency, and persistence across reopened connections.
 - API integration tests that start the real ASP.NET Core host against isolated, migrated temporary SQLite databases.
 - SQLite-free dashboard aggregation tests with deterministic service fakes.
+- Frontend behavior tests for dashboard states, retry, search, filters, audit JSON inspection, and pagination with the API boundary mocked.
 
 ## 🧱 Architecture Overview
 Layer diagram:
 ```
+SuperDentist.Web --REST/JSON--> SuperDentist.Api
+
 SuperDentist.App
   -> SuperDentist.Application
   -> SuperDentist.Infrastructure
@@ -109,10 +134,12 @@ SuperDentist.Infrastructure -> SuperDentist.Core
 Responsibilities:
 - SuperDentist.App: WPF Views/ViewModels, composition root, DI host, navigation, validation, logging setup, user messaging, and read-only audit history
 - SuperDentist.Api: read-only REST/JSON endpoints, API DTOs, HTTP validation, Swagger, health checks, CORS, and API request/error handling
+- SuperDentist.Web: React/TypeScript read-only dashboard, typed API client, responsive routes, filters, and audit inspection
 - SuperDentist.Application: business use cases, audited entity operations, bounded clinic queries, dashboard aggregation, actor resolution, deterministic snapshot serialization, and audit search
 - SuperDentist.Core: domain entities, audit models/query types, repository/service/transaction contracts, shared results, and options
 - SuperDentist.Infrastructure: SQLite connection and transaction management, schema migrations, demo seeding, audit persistence, and repository implementations
 - SuperDentist.Tests: unit and integration tests
+- SuperDentist.Web tests: Vitest and Testing Library behavior tests with the API boundary mocked
 
 Patterns used:
 - MVVM with `ObservableValidator` and command-based actions
@@ -137,6 +164,20 @@ List endpoints support bounded limits and relevant search, identifier, date-rang
 The API returns dedicated response DTOs rather than persistence objects; doctor salary is intentionally omitted because the dashboard does not require staff compensation data. Centralized exception handling returns generic problem details without stack traces or internal exception messages, and request logging excludes query strings to avoid unnecessarily recording filter values.
 
 Authentication and authorization are intentionally outside this checkpoint. The API exposes patient and audit data and must be treated as a local/trusted-development service until authenticated access controls are added. Current repository contracts return complete entity lists before Application filtering and paging; response sizes are bounded, but database-side read projections remain a future scalability improvement.
+
+## Read-only React Dashboard
+`SuperDentist.Web` is a second client alongside WPF. It communicates only through REST/JSON with `SuperDentist.Api`; it has no direct reference or access to Application, Infrastructure, SQLite, or the WPF process.
+
+Routes:
+- `/`: operational metrics, upcoming appointments, doctor workload, treatment value, and recent audit activity.
+- `/doctors`: bounded searchable doctor directory; salary is not requested or displayed.
+- `/patients`: bounded patient directory with assigned-doctor and treatment-status context.
+- `/appointments`: bounded schedule with text, doctor, patient, and date-range filters.
+- `/audit`: newest-first audit records with combinable filters and read-only before/after JSON inspection.
+
+The frontend centralizes HTTP calls, DTOs, ASP.NET Problem Details handling, and request cancellation in `src/api`. Pages include loading, empty, retryable error, responsive table, and keyboard-focus states. Audit timestamps are stored by the API in UTC and displayed in the browser's local time zone with both semantics labeled. Dashboard monetary values are displayed as USD because the current domain model does not yet carry a clinic currency setting.
+
+This web client is intentionally read-only. WPF remains the operational write client, and the API exposes no mutation endpoints. Browser refresh and direct routes require a production static host configured to fall back to `index.html`.
 
 ## 🗄 Data, Migrations & Seeding
 Schema versioning is managed by the Infrastructure layer with a dedicated `SchemaMigrations` table.
