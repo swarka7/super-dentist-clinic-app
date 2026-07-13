@@ -1,5 +1,5 @@
 # Super Dentist
-Modern WPF clinic management for dentists — fast scheduling, clean records, and reliable reporting in a single desktop app.
+Modern .NET 8 clinic management with a WPF operations client and a read-only ASP.NET Core reporting API.
 
 Why this exists: many small clinics still rely on spreadsheets or legacy software. Super Dentist is a clean, modern desktop alternative built to be fast, understandable, and maintainable.
 
@@ -20,12 +20,14 @@ Why this exists: many small clinics still rely on spreadsheets or legacy softwar
    `docs/screenshots/screenshot-reports.png`
 
 ## 🚀 Overview
-Super Dentist is a desktop application for small to mid-size dental clinics. It streamlines daily operations like managing doctors, patients, treatments, and appointments, with built-in reports to keep the team informed. It’s designed to be simple for front‑desk workflows while still solidly engineered for maintainability.
+Super Dentist is a clinic management platform for small to mid-size dental clinics. Its WPF client handles daily operations such as doctors, patients, treatments, and appointments, while its read-only API exposes reporting data for additional clients. It is designed for simple front-desk workflows with maintainable engineering boundaries.
 
 ## ✨ Key Features
 - Modern WPF desktop app built with .NET 8
+- Read-only ASP.NET Core Web API with OpenAPI/Swagger
 - Clean MVVM architecture + Dependency Injection
 - Application layer for business use cases and service implementations
+- Application-owned clinic list queries and dashboard aggregation
 - Versioned SQLite schema migrations with in-place upgrades
 - SQLite foreign-key enforcement for clinic relationships
 - SQLite database auto-create + seeded demo data after successful migrations
@@ -39,6 +41,8 @@ Super Dentist is a desktop application for small to mid-size dental clinics. It 
 ## 🛠 Tech Stack
 - C#, .NET 8
 - WPF
+- ASP.NET Core Web API
+- OpenAPI / Swagger
 - MVVM (CommunityToolkit.Mvvm)
 - Dependency Injection (Microsoft.Extensions.*)
 - SQLite
@@ -50,11 +54,17 @@ Requirements:
 - Windows 10/11
 - .NET 8 SDK (or Visual Studio 2022)
 
-Run the app:
+Run the WPF app:
 1. `dotnet build "Super Dentist.sln"`
 2. `dotnet run --project src/SuperDentist.App/SuperDentist.App.csproj`
 
 The application project is `SuperDentist.App`. The executable/assembly is branded as `Super Dentist`, so local build output is named `Super Dentist.exe`.
+
+Run the reporting API:
+1. `dotnet run --project src/SuperDentist.Api/SuperDentist.Api.csproj`
+2. Open `http://localhost:5080/swagger` or call `http://localhost:5080/health`.
+
+The development API URL is defined in `src/SuperDentist.Api/Properties/launchSettings.json` and can be overridden with standard ASP.NET Core configuration such as `ASPNETCORE_URLS`. Development CORS permits only `http://localhost:5173` by default; production does not enable a permissive CORS policy.
 
 First run behavior:
 - A local SQLite database is created automatically
@@ -63,7 +73,7 @@ First run behavior:
 
 SQLite and logs:
 - Default DB: `%LOCALAPPDATA%\SuperDentist\superdentist.db`
-- Override DB path: set `Database:Path` in `src/SuperDentist.App/appsettings.json` or `SUPERDENTIST_DB_PATH`
+- Override DB path: set `Database:Path` in the active App/API configuration or `SUPERDENTIST_DB_PATH`
 - Logs: `%LOCALAPPDATA%\SuperDentist\logs\superdentist.log`
 
 ## 🧪 Testing
@@ -76,11 +86,18 @@ The test suite includes:
 - Deterministic, test-owned doctors, patients, treatments, and appointments instead of production demo seed data.
 - Migration tests for empty databases, baseline upgrades, idempotency, foreign-key enforcement, restrictive deletes, audit timestamps, and the version 3 audit trail.
 - Audit tests for actor and UTC capture, deterministic JSON snapshots, filtering, newest-first ordering, transaction rollback, initialization idempotency, and persistence across reopened connections.
+- API integration tests that start the real ASP.NET Core host against isolated, migrated temporary SQLite databases.
+- SQLite-free dashboard aggregation tests with deterministic service fakes.
 
 ## 🧱 Architecture Overview
 Layer diagram:
 ```
 SuperDentist.App
+  -> SuperDentist.Application
+  -> SuperDentist.Infrastructure
+  -> SuperDentist.Core
+
+SuperDentist.Api
   -> SuperDentist.Application
   -> SuperDentist.Infrastructure
   -> SuperDentist.Core
@@ -91,7 +108,8 @@ SuperDentist.Infrastructure -> SuperDentist.Core
 
 Responsibilities:
 - SuperDentist.App: WPF Views/ViewModels, composition root, DI host, navigation, validation, logging setup, user messaging, and read-only audit history
-- SuperDentist.Application: business use cases, audited entity operations, actor resolution, deterministic snapshot serialization, and audit search
+- SuperDentist.Api: read-only REST/JSON endpoints, API DTOs, HTTP validation, Swagger, health checks, CORS, and API request/error handling
+- SuperDentist.Application: business use cases, audited entity operations, bounded clinic queries, dashboard aggregation, actor resolution, deterministic snapshot serialization, and audit search
 - SuperDentist.Core: domain entities, audit models/query types, repository/service/transaction contracts, shared results, and options
 - SuperDentist.Infrastructure: SQLite connection and transaction management, schema migrations, demo seeding, audit persistence, and repository implementations
 - SuperDentist.Tests: unit and integration tests
@@ -101,6 +119,24 @@ Patterns used:
 - Repository + service interfaces for clean boundaries
 - DI for ViewModels, Application services, Infrastructure repositories, and database initialization
 - Application transaction boundary for atomic clinic changes and audit inserts
+
+## Read-only Reporting API
+The API reuses the same Application services, Infrastructure repositories, migrations, and SQLite database as the WPF client. It does not duplicate clinic business rules and exposes no mutation endpoints.
+
+Endpoints:
+- `GET /api/doctors` and `GET /api/doctors/{id}`
+- `GET /api/patients` and `GET /api/patients/{id}`
+- `GET /api/appointments`
+- `GET /api/treatments`
+- `GET /api/audit`
+- `GET /api/dashboard/summary`
+- `GET /health`
+
+List endpoints support bounded limits and relevant search, identifier, date-range, actor, entity, and operation filters. The dashboard reports patient and doctor totals, today/upcoming appointments, patient-treatment completion, unpaid treatment value, doctor utilization, treatment usage/value, upcoming appointments, and recent audit activity. Since the current domain has no inactive-doctor flag, all stored doctors are counted as active. Outstanding value means the catalog value of patient-treatment records not marked paid.
+
+The API returns dedicated response DTOs rather than persistence objects; doctor salary is intentionally omitted because the dashboard does not require staff compensation data. Centralized exception handling returns generic problem details without stack traces or internal exception messages, and request logging excludes query strings to avoid unnecessarily recording filter values.
+
+Authentication and authorization are intentionally outside this checkpoint. The API exposes patient and audit data and must be treated as a local/trusted-development service until authenticated access controls are added. Current repository contracts return complete entity lists before Application filtering and paging; response sizes are bounded, but database-side read projections remain a future scalability improvement.
 
 ## 🗄 Data, Migrations & Seeding
 Schema versioning is managed by the Infrastructure layer with a dedicated `SchemaMigrations` table.

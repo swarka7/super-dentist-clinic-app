@@ -16,6 +16,8 @@ namespace SuperDentist.Application
             services.AddSingleton<ITreatmentService, TreatmentService>();
             services.AddSingleton<IAppointmentService, AppointmentService>();
             services.AddSingleton<IPatientTreatmentService, PatientTreatmentService>();
+            services.AddSingleton<IClinicQueryService, ClinicQueryService>();
+            services.AddSingleton<IDashboardQueryService, DashboardQueryService>();
 
             return services;
         }

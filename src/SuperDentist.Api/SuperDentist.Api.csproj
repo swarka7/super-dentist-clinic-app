@@ -1,0 +1,20 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <LangVersion>latest</LangVersion>
+    <RootNamespace>SuperDentist.Api</RootNamespace>
+    <AssemblyName>SuperDentist.Api</AssemblyName>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="$(MSBuildThisFileDirectory)..\SuperDentist.Core\SuperDentist.Core.csproj" />
+    <ProjectReference Include="$(MSBuildThisFileDirectory)..\SuperDentist.Application\SuperDentist.Application.csproj" />
+    <ProjectReference Include="$(MSBuildThisFileDirectory)..\SuperDentist.Infrastructure\SuperDentist.Infrastructure.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Swashbuckle.AspNetCore" Version="6.6.2" />
+  </ItemGroup>
+</Project>
