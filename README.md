@@ -25,12 +25,13 @@ Super Dentist is a desktop application for small to mid-size dental clinics. It 
 ## ✨ Key Features
 - Modern WPF desktop app built with .NET 8
 - Clean MVVM architecture + Dependency Injection
+- Application layer for business use cases and service implementations
 - SQLite database (auto-create + seeded demo data)
 - Strong input validation with friendly inline errors
 - Navigation and search/filter lists
 - Appointment conflict detection (prevents double‑booking)
 - Structured logging for troubleshooting
-- Automated tests for core services
+- Automated unit and integration tests for Application services and SQLite behavior
 
 ## 🛠 Tech Stack
 - C#, .NET 8
@@ -50,6 +51,8 @@ Run the app:
 1. `dotnet build "Super Dentist.sln"`
 2. `dotnet run --project src/SuperDentist.App/SuperDentist.App.csproj`
 
+The application project is `SuperDentist.App`. The executable/assembly is branded as `Super Dentist`, so local build output is named `Super Dentist.exe`.
+
 First run behavior:
 - A local SQLite database is created automatically
 - Demo data is seeded so the app looks alive immediately
@@ -61,25 +64,36 @@ SQLite and logs:
 
 ## 🧪 Testing
 Run tests:
-`dotnet test "tests/SuperDentist.Tests/SuperDentist.Tests.csproj"`
+`dotnet test "Super Dentist.sln"`
+
+The test suite includes:
+- Application service unit tests using simple fake repositories, proving business use cases can be tested without SQLite.
+- Integration-style appointment tests that run against isolated temporary SQLite databases.
+- Deterministic, test-owned doctors, patients, treatments, and appointments instead of production demo seed data.
 
 ## 🧱 Architecture Overview
 Layer diagram:
 ```
-App (WPF UI)
-   └── Core (domain models + interfaces)
-         └── Infrastructure (SQLite + repositories + services)
+SuperDentist.App
+  -> SuperDentist.Application
+  -> SuperDentist.Infrastructure
+  -> SuperDentist.Core
+
+SuperDentist.Application -> SuperDentist.Core
+SuperDentist.Infrastructure -> SuperDentist.Core
 ```
 
 Responsibilities:
-- App: Views, ViewModels, navigation, validation, and UX
-- Core: domain entities and service/repository contracts
-- Infrastructure: SQLite database, repositories, and data initialization
+- SuperDentist.App: WPF Views/ViewModels, composition root, DI host, navigation, validation, logging setup, and user messaging
+- SuperDentist.Application: business use cases and service implementations for doctors, patients, treatments, appointments, and patient treatments
+- SuperDentist.Core: domain entities, repository/service contracts, shared results, and options
+- SuperDentist.Infrastructure: SQLite connection management, schema initialization, demo seeding, and repository implementations
+- SuperDentist.Tests: unit and integration tests
 
 Patterns used:
 - MVVM with `ObservableValidator` and command-based actions
 - Repository + service interfaces for clean boundaries
-- DI for ViewModels and services
+- DI for ViewModels, Application services, and Infrastructure repositories
 
 ## 🗄 Data & Seeding
 Seeded demo data is created on first run (doctors, patients, treatments, appointments, patient treatments).
