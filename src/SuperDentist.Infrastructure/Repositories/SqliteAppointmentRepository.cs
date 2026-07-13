@@ -10,15 +10,15 @@ namespace SuperDentist.Infrastructure.Repositories
 {
     public sealed class SqliteAppointmentRepository : SqliteRepositoryBase, IAppointmentRepository
     {
-        public SqliteAppointmentRepository(ISqliteConnectionFactory connectionFactory) : base(connectionFactory)
+        public SqliteAppointmentRepository(SqliteConnectionFactory connectionFactory) : base(connectionFactory)
         {
         }
 
         public async Task<IReadOnlyList<Appointment>> GetAllAsync(CancellationToken cancellationToken = default)
         {
             var appointments = new List<Appointment>();
-            await using var connection = await OpenConnectionAsync(cancellationToken).ConfigureAwait(false);
-            await using var command = connection.CreateCommand();
+            await using var scope = await OpenScopeAsync(cancellationToken).ConfigureAwait(false);
+            await using var command = scope.CreateCommand();
             command.CommandText = @"SELECT PatientId, DoctorId, Date, Time, TreatmentNumber, CreatedAtUtc, UpdatedAtUtc
                                     FROM Appointments ORDER BY Date, Time;";
 
@@ -33,8 +33,8 @@ namespace SuperDentist.Infrastructure.Repositories
 
         public async Task<Appointment?> GetByPatientIdAsync(string patientId, CancellationToken cancellationToken = default)
         {
-            await using var connection = await OpenConnectionAsync(cancellationToken).ConfigureAwait(false);
-            await using var command = connection.CreateCommand();
+            await using var scope = await OpenScopeAsync(cancellationToken).ConfigureAwait(false);
+            await using var command = scope.CreateCommand();
             command.CommandText = @"SELECT PatientId, DoctorId, Date, Time, TreatmentNumber, CreatedAtUtc, UpdatedAtUtc
                                     FROM Appointments WHERE PatientId = @PatientId;";
             command.Parameters.AddWithValue("@PatientId", patientId);
@@ -46,8 +46,8 @@ namespace SuperDentist.Infrastructure.Repositories
         public async Task<IReadOnlyList<Appointment>> GetByDateAsync(string date, CancellationToken cancellationToken = default)
         {
             var appointments = new List<Appointment>();
-            await using var connection = await OpenConnectionAsync(cancellationToken).ConfigureAwait(false);
-            await using var command = connection.CreateCommand();
+            await using var scope = await OpenScopeAsync(cancellationToken).ConfigureAwait(false);
+            await using var command = scope.CreateCommand();
             command.CommandText = @"SELECT PatientId, DoctorId, Date, Time, TreatmentNumber, CreatedAtUtc, UpdatedAtUtc
                                     FROM Appointments WHERE Date = @Date ORDER BY Time;";
             command.Parameters.AddWithValue("@Date", date);
@@ -63,8 +63,8 @@ namespace SuperDentist.Infrastructure.Repositories
 
         public async Task<bool> ExistsAsync(string patientId, CancellationToken cancellationToken = default)
         {
-            await using var connection = await OpenConnectionAsync(cancellationToken).ConfigureAwait(false);
-            await using var command = connection.CreateCommand();
+            await using var scope = await OpenScopeAsync(cancellationToken).ConfigureAwait(false);
+            await using var command = scope.CreateCommand();
             command.CommandText = "SELECT 1 FROM Appointments WHERE PatientId = @PatientId LIMIT 1;";
             command.Parameters.AddWithValue("@PatientId", patientId);
             object? result = await command.ExecuteScalarAsync(cancellationToken).ConfigureAwait(false);
@@ -73,8 +73,8 @@ namespace SuperDentist.Infrastructure.Repositories
 
         public async Task<bool> SlotExistsAsync(string doctorId, string date, string time, CancellationToken cancellationToken = default)
         {
-            await using var connection = await OpenConnectionAsync(cancellationToken).ConfigureAwait(false);
-            await using var command = connection.CreateCommand();
+            await using var scope = await OpenScopeAsync(cancellationToken).ConfigureAwait(false);
+            await using var command = scope.CreateCommand();
             command.CommandText = @"SELECT 1 FROM Appointments
                                     WHERE DoctorId = @DoctorId AND Date = @Date AND Time = @Time
                                     LIMIT 1;";
@@ -87,8 +87,8 @@ namespace SuperDentist.Infrastructure.Repositories
 
         public async Task AddAsync(Appointment appointment, CancellationToken cancellationToken = default)
         {
-            await using var connection = await OpenConnectionAsync(cancellationToken).ConfigureAwait(false);
-            await using var command = connection.CreateCommand();
+            await using var scope = await OpenScopeAsync(cancellationToken).ConfigureAwait(false);
+            await using var command = scope.CreateCommand();
             command.CommandText = @"INSERT INTO Appointments (PatientId, DoctorId, Date, Time, TreatmentNumber, CreatedAtUtc, UpdatedAtUtc)
                                     VALUES (@PatientId, @DoctorId, @Date, @Time, @TreatmentNumber, @CreatedAtUtc, @UpdatedAtUtc);";
             AddAppointmentParameters(command, appointment, includeCreatedAt: true);
@@ -97,8 +97,8 @@ namespace SuperDentist.Infrastructure.Repositories
 
         public async Task UpdateAsync(Appointment appointment, CancellationToken cancellationToken = default)
         {
-            await using var connection = await OpenConnectionAsync(cancellationToken).ConfigureAwait(false);
-            await using var command = connection.CreateCommand();
+            await using var scope = await OpenScopeAsync(cancellationToken).ConfigureAwait(false);
+            await using var command = scope.CreateCommand();
             command.CommandText = @"UPDATE Appointments
                                     SET DoctorId = @DoctorId,
                                         Date = @Date,
@@ -112,8 +112,8 @@ namespace SuperDentist.Infrastructure.Repositories
 
         public async Task DeleteAsync(string patientId, CancellationToken cancellationToken = default)
         {
-            await using var connection = await OpenConnectionAsync(cancellationToken).ConfigureAwait(false);
-            await using var command = connection.CreateCommand();
+            await using var scope = await OpenScopeAsync(cancellationToken).ConfigureAwait(false);
+            await using var command = scope.CreateCommand();
             command.CommandText = "DELETE FROM Appointments WHERE PatientId = @PatientId;";
             command.Parameters.AddWithValue("@PatientId", patientId);
             await command.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);

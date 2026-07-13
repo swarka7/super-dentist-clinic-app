@@ -65,6 +65,7 @@ namespace SuperDentist.App
                     services.AddTransient<PatientDetailsViewModel>();
                     services.AddTransient<TreatmentReportViewModel>();
                     services.AddTransient<TodayAppointmentsViewModel>();
+                    services.AddTransient<AuditHistoryViewModel>();
 
                     services.AddSingleton<MainWindow>();
                 })

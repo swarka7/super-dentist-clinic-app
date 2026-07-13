@@ -8,6 +8,9 @@ namespace SuperDentist.Application
     {
         public static IServiceCollection AddSuperDentistApplication(this IServiceCollection services)
         {
+            services.AddSingleton(TimeProvider.System);
+            services.AddSingleton<ICurrentActorProvider, LocalCurrentActorProvider>();
+            services.AddSingleton<IAuditService, AuditService>();
             services.AddSingleton<IDoctorService, DoctorService>();
             services.AddSingleton<IPatientService, PatientService>();
             services.AddSingleton<ITreatmentService, TreatmentService>();

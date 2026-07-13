@@ -14,7 +14,8 @@ namespace SuperDentist.Infrastructure.Data
         private static readonly IReadOnlyList<SqliteMigration> Migrations = new[]
         {
             new SqliteMigration(SqliteSchema.BaselineVersion, "Baseline current schema", SqliteSchema.BaselineSchemaSql),
-            new SqliteMigration(SqliteSchema.IntegrityVersion, "Foreign keys and audit timestamps", SqliteSchema.IntegrityUpgradeSql)
+            new SqliteMigration(SqliteSchema.IntegrityVersion, "Foreign keys and audit timestamps", SqliteSchema.IntegrityUpgradeSql),
+            new SqliteMigration(SqliteSchema.AuditVersion, "Application audit trail", SqliteSchema.AuditTrailSql)
         };
 
         private static readonly string[] BaselineTables =

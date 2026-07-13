@@ -1,4 +1,5 @@
 using Microsoft.Data.Sqlite;
+using Microsoft.Extensions.Logging.Abstractions;
 using SuperDentist.Core;
 using SuperDentist.Infrastructure.Data;
 using SuperDentist.Infrastructure.Repositories;
@@ -125,6 +126,110 @@ VALUES ('P100', 'D100', '2030-07-01', '11:00', 'T100');
             await AssertTimestampsPopulatedAsync(database, "PatientTreatments");
         }
 
+        [Fact]
+        public async Task MigrateAsync_WhenDatabaseIsVersionTwo_AddsCompleteAuditSchemaWithoutDataLoss()
+        {
+            using var database = await SqliteTestDatabase.CreateAtMigrationVersionAsync(
+                SqliteSchema.IntegrityVersion);
+            await database.ExecuteAsync(@"
+INSERT INTO Doctors
+    (Id, FirstName, LastName, Phone, Address, Email, Specialization, Salary)
+VALUES
+    ('V2-D1', 'Version', 'Two', '0500000000', '1 Upgrade St', 'v2@example.com', 'General', 9000);
+
+INSERT INTO Treatments (Number, Type, Price, Tools)
+VALUES ('V2-T1', 'Version Two Treatment', 450, 'Upgrade Tools');
+
+INSERT INTO Patients
+    (Id, FirstName, LastName, Address, Phone, Email, Age, TreatmentStatus, DoctorId)
+VALUES
+    ('V2-P1', 'Existing', 'Patient', '2 Upgrade St', '0500000001', 'patient@example.com', 36, 'Yes', 'V2-D1');
+
+INSERT INTO Appointments (PatientId, DoctorId, Date, Time, TreatmentNumber)
+VALUES ('V2-P1', 'V2-D1', '2045-01-02', '09:30', 'V2-T1');
+
+INSERT INTO PatientTreatments (PatientId, TreatmentNumber, IsCompleted, IsPaid, StartDate)
+VALUES ('V2-P1', 'V2-T1', 'No', 'Yes', '2045-01-01');
+");
+
+            MigrationResult result = await database.MigrateToLatestAsync();
+
+            Assert.Equal(SqliteSchema.AuditVersion, result.CurrentVersion);
+            Assert.Contains(SqliteSchema.AuditVersion, result.AppliedVersions);
+            Assert.Equal(1L, await CountAsync(database, "Doctors"));
+            Assert.Equal(1L, await CountAsync(database, "Treatments"));
+            Assert.Equal(1L, await CountAsync(database, "Patients"));
+            Assert.Equal(1L, await CountAsync(database, "Appointments"));
+            Assert.Equal(1L, await CountAsync(database, "PatientTreatments"));
+            Assert.Equal(
+                "Existing",
+                await database.ScalarAsync("SELECT FirstName FROM Patients WHERE Id = 'V2-P1';"));
+            Assert.Equal(
+                "2045-01-02",
+                await database.ScalarAsync("SELECT Date FROM Appointments WHERE PatientId = 'V2-P1';"));
+            Assert.Equal(0L, await CountAsync(database, "AuditEntries"));
+            Assert.Equal(
+                4L,
+                Convert.ToInt64(await database.ScalarAsync(
+                    "SELECT COUNT(*) FROM sqlite_master WHERE type = 'index' AND name LIKE 'IX_AuditEntries_%';")));
+            Assert.Equal(
+                2L,
+                Convert.ToInt64(await database.ScalarAsync(
+                    "SELECT COUNT(*) FROM sqlite_master WHERE type = 'trigger' AND name LIKE 'TR_AuditEntries_%';")));
+        }
+
+        [Fact]
+        public async Task MigrateAsync_WhenAuditMigrationFails_RollsBackAndDoesNotRecordVersion()
+        {
+            using var database = await SqliteTestDatabase.CreateAtMigrationVersionAsync(
+                SqliteSchema.IntegrityVersion);
+            await database.ExecuteAsync(
+                "CREATE INDEX IX_AuditEntries_Operation ON Doctors (Id);");
+
+            await Assert.ThrowsAsync<InvalidOperationException>(
+                () => database.MigrateToLatestAsync());
+
+            Assert.Equal(
+                0L,
+                Convert.ToInt64(await database.ScalarAsync(
+                    $"SELECT COUNT(*) FROM {SqliteSchema.MigrationTableName} WHERE Version = {SqliteSchema.AuditVersion};")));
+            Assert.Equal(
+                0L,
+                Convert.ToInt64(await database.ScalarAsync(
+                    "SELECT COUNT(*) FROM sqlite_master WHERE type = 'table' AND name = 'AuditEntries';")));
+            Assert.Equal(
+                1L,
+                Convert.ToInt64(await database.ScalarAsync(
+                    "SELECT COUNT(*) FROM sqlite_master WHERE type = 'index' AND name = 'IX_AuditEntries_Operation';")));
+        }
+
+        [Fact]
+        public async Task InitializeAsync_WhenRunMultipleTimes_RemainsIdempotentAndPreservesAuditEntries()
+        {
+            using var database = await SqliteTestDatabase.CreateAsync();
+            var initializer = new SqliteDatabaseInitializer(
+                database.ConnectionFactory,
+                database.Migrator,
+                NullLogger<SqliteDatabaseInitializer>.Instance);
+
+            var first = await initializer.InitializeAsync();
+            long doctorCount = await CountAsync(database, "Doctors");
+            await database.ExecuteAsync(@"
+INSERT INTO AuditEntries
+    (EntityType, EntityId, Operation, Actor, TimestampUtc, OldValues, NewValues, CorrelationId)
+VALUES
+    ('Doctor', 'SEED-CHECK', 'Created', 'TestActor', '2045-01-01T00:00:00.0000000Z', NULL, '{}', 'seed-check');
+");
+
+            var second = await initializer.InitializeAsync();
+
+            Assert.True(first.IsNewDatabase);
+            Assert.False(second.IsNewDatabase);
+            Assert.True(doctorCount > 0);
+            Assert.Equal(doctorCount, await CountAsync(database, "Doctors"));
+            Assert.Equal(1L, await CountAsync(database, "AuditEntries"));
+            Assert.Equal(SqliteSchema.LatestVersion, await GetCurrentSchemaVersionAsync(database));
+        }
         private static async Task<int> GetCurrentSchemaVersionAsync(SqliteTestDatabase database)
         {
             object? value = await database.ScalarAsync($"SELECT MAX(Version) FROM {SqliteSchema.MigrationTableName};");

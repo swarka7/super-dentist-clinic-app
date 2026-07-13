@@ -40,6 +40,13 @@ namespace SuperDentist.Tests
 
             Assert.False(second.Success);
             Assert.Equal(SlotConflictMessage, second.ErrorMessage);
+
+            var auditEntries = await database.AuditRepository.SearchAsync(new AuditQuery
+            {
+                EntityType = AuditEntityTypes.Appointment
+            });
+            AuditEntry auditEntry = Assert.Single(auditEntries);
+            Assert.Equal(AuditOperation.Created, auditEntry.Operation);
         }
 
         [Fact]
@@ -133,7 +140,10 @@ namespace SuperDentist.Tests
 
         private static AppointmentService CreateService(SqliteTestDatabase database)
         {
-            return new AppointmentService(new SqliteAppointmentRepository(database.ConnectionFactory));
+            return new AppointmentService(
+                new SqliteAppointmentRepository(database.ConnectionFactory),
+                database.CreateAuditService(),
+                database.Transaction);
         }
 
         private static Appointment CreateAppointment(

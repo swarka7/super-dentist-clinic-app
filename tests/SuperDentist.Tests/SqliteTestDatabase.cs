@@ -1,7 +1,10 @@
 using Microsoft.Data.Sqlite;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
+using SuperDentist.Application.Services;
 using SuperDentist.Core.Options;
+using SuperDentist.Core.Services;
+using SuperDentist.Infrastructure.Repositories;
 using SuperDentist.Infrastructure.Data;
 using System;
 using System.Collections.Generic;
@@ -19,11 +22,25 @@ namespace SuperDentist.Tests
             DatabasePath = databasePath;
             ConnectionFactory = new SqliteConnectionFactory(Options.Create(new DatabaseOptions { Path = databasePath }));
             Migrator = new SqliteDatabaseMigrator(ConnectionFactory, NullLogger<SqliteDatabaseMigrator>.Instance);
+            Transaction = new SqliteApplicationTransaction(ConnectionFactory);
+            AuditRepository = new SqliteAuditRepository(ConnectionFactory);
         }
 
         public string DatabasePath { get; }
         public SqliteConnectionFactory ConnectionFactory { get; }
         public SqliteDatabaseMigrator Migrator { get; }
+        public SqliteApplicationTransaction Transaction { get; }
+        public SqliteAuditRepository AuditRepository { get; }
+
+        public AuditService CreateAuditService(
+            string actor = "TestActor",
+            TimeProvider? timeProvider = null)
+        {
+            return new AuditService(
+                AuditRepository,
+                new FixedActorProvider(actor),
+                timeProvider ?? TimeProvider.System);
+        }
 
         public static async Task<SqliteTestDatabase> CreateAsync(CancellationToken cancellationToken = default)
         {
@@ -113,6 +130,16 @@ namespace SuperDentist.Tests
             DeleteIfExists(DatabasePath + "-shm");
             DeleteIfExists(DatabasePath + "-wal");
             DeleteIfExists(DatabasePath + "-journal");
+        }
+
+        private sealed class FixedActorProvider : ICurrentActorProvider
+        {
+            public FixedActorProvider(string actor)
+            {
+                Actor = actor;
+            }
+
+            public string Actor { get; }
         }
 
         private static SqliteTestDatabase CreateUninitialized()

@@ -13,7 +13,7 @@ namespace SuperDentist.Tests
         {
             using var database = await SqliteTestDatabase.CreateAsync();
             var repository = new SqliteDoctorRepository(database.ConnectionFactory);
-            var service = new DoctorService(repository);
+            var service = new DoctorService(repository, database.CreateAuditService(), database.Transaction);
 
             var doctor = new Doctor
             {

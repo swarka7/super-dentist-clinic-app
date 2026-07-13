@@ -9,16 +9,16 @@ namespace SuperDentist.Infrastructure.Repositories
 {
     public abstract class SqliteRepositoryBase
     {
-        private readonly ISqliteConnectionFactory _connectionFactory;
+        private readonly SqliteConnectionFactory _connectionFactory;
 
-        protected SqliteRepositoryBase(ISqliteConnectionFactory connectionFactory)
+        protected SqliteRepositoryBase(SqliteConnectionFactory connectionFactory)
         {
             _connectionFactory = connectionFactory;
         }
 
-        protected async Task<SqliteConnection> OpenConnectionAsync(CancellationToken cancellationToken)
+        private protected Task<SqliteConnectionScope> OpenScopeAsync(CancellationToken cancellationToken)
         {
-            return await _connectionFactory.OpenConnectionAsync(cancellationToken).ConfigureAwait(false);
+            return _connectionFactory.OpenScopeAsync(cancellationToken);
         }
 
         protected static string UtcNowText()

@@ -26,6 +26,7 @@ namespace SuperDentist.App.ViewModels
                         OnPropertyChanged(nameof(IsTreatmentsActive));
                         OnPropertyChanged(nameof(IsPatientTreatmentsActive));
                         OnPropertyChanged(nameof(IsTodayActive));
+                        OnPropertyChanged(nameof(IsAuditHistoryActive));
                     }
                 };
             }
@@ -37,6 +38,7 @@ namespace SuperDentist.App.ViewModels
             ShowPatientTreatmentsCommand = new RelayCommand(() => _navigationService.NavigateTo<PatientTreatmentsViewModel>());
             ShowReportsCommand = new RelayCommand(() => _navigationService.NavigateTo<ReportsViewModel>());
             ShowTodayAppointmentsCommand = new RelayCommand(() => _navigationService.NavigateTo<TodayAppointmentsViewModel>());
+            ShowAuditHistoryCommand = new RelayCommand(() => _navigationService.NavigateTo<AuditHistoryViewModel>());
 
             _navigationService.NavigateTo<DoctorsViewModel>();
         }
@@ -48,6 +50,7 @@ namespace SuperDentist.App.ViewModels
         public bool IsTreatmentsActive => CurrentViewModel is TreatmentsViewModel;
         public bool IsPatientTreatmentsActive => CurrentViewModel is PatientTreatmentsViewModel;
         public bool IsTodayActive => CurrentViewModel is TodayAppointmentsViewModel;
+        public bool IsAuditHistoryActive => CurrentViewModel is AuditHistoryViewModel;
 
         public ICommand ShowDoctorsCommand { get; }
         public ICommand ShowPatientsCommand { get; }
@@ -56,5 +59,6 @@ namespace SuperDentist.App.ViewModels
         public ICommand ShowPatientTreatmentsCommand { get; }
         public ICommand ShowReportsCommand { get; }
         public ICommand ShowTodayAppointmentsCommand { get; }
+        public ICommand ShowAuditHistoryCommand { get; }
     }
 }

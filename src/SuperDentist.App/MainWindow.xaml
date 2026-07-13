@@ -184,6 +184,22 @@
                             <TextBlock Text="Today" Foreground="{Binding RelativeSource={RelativeSource AncestorType=Button}, Path=Foreground}" />
                         </StackPanel>
                     </Button>
+                    <Button Command="{Binding ShowAuditHistoryCommand}">
+                        <Button.Style>
+                            <Style TargetType="Button" BasedOn="{StaticResource NavButton}">
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding IsAuditHistoryActive}" Value="True">
+                                        <Setter Property="Background" Value="#1C2E4A" />
+                                        <Setter Property="BorderBrush" Value="{StaticResource Brush.Accent}" />
+                                        <Setter Property="BorderThickness" Value="1" />
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </Button.Style>
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="Audit History" Foreground="{Binding RelativeSource={RelativeSource AncestorType=Button}, Path=Foreground}" />
+                        </StackPanel>
+                    </Button>
                 </StackPanel>
             </Border>
 

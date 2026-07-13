@@ -4,7 +4,8 @@ namespace SuperDentist.Infrastructure.Data
     {
         public const int BaselineVersion = 1;
         public const int IntegrityVersion = 2;
-        public const int LatestVersion = IntegrityVersion;
+        public const int AuditVersion = 3;
+        public const int LatestVersion = AuditVersion;
 
         public const string MigrationTableName = "SchemaMigrations";
 
@@ -174,6 +175,41 @@ DROP TABLE Doctors_Legacy;
 CREATE UNIQUE INDEX IX_Appointments_PatientId ON Appointments (PatientId);
 CREATE UNIQUE INDEX IX_Appointments_DoctorSlot ON Appointments (DoctorId, Date, Time);
 CREATE INDEX IX_PatientTreatments_PatientId ON PatientTreatments (PatientId);
+";
+
+        public const string AuditTrailSql = @"
+CREATE TABLE AuditEntries (
+    Id INTEGER PRIMARY KEY AUTOINCREMENT,
+    EntityType TEXT NOT NULL CHECK (length(trim(EntityType)) > 0),
+    EntityId TEXT NOT NULL CHECK (length(trim(EntityId)) > 0),
+    Operation TEXT NOT NULL CHECK (Operation IN ('Created', 'Updated', 'Deleted')),
+    Actor TEXT NOT NULL CHECK (length(trim(Actor)) > 0),
+    TimestampUtc TEXT NOT NULL CHECK (length(trim(TimestampUtc)) > 0),
+    OldValues TEXT,
+    NewValues TEXT,
+    CorrelationId TEXT NOT NULL CHECK (length(trim(CorrelationId)) > 0)
+);
+
+CREATE INDEX IX_AuditEntries_TimestampUtc
+    ON AuditEntries (TimestampUtc DESC);
+CREATE INDEX IX_AuditEntries_Entity
+    ON AuditEntries (EntityType, EntityId, TimestampUtc DESC);
+CREATE INDEX IX_AuditEntries_Actor
+    ON AuditEntries (Actor, TimestampUtc DESC);
+CREATE INDEX IX_AuditEntries_Operation
+    ON AuditEntries (Operation, TimestampUtc DESC);
+
+CREATE TRIGGER TR_AuditEntries_AppendOnly_Update
+BEFORE UPDATE ON AuditEntries
+BEGIN
+    SELECT RAISE(ABORT, 'Audit entries are append-only.');
+END;
+
+CREATE TRIGGER TR_AuditEntries_AppendOnly_Delete
+BEFORE DELETE ON AuditEntries
+BEGIN
+    SELECT RAISE(ABORT, 'Audit entries are append-only.');
+END;
 ";
     }
 }
