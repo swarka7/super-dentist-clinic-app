@@ -1,3 +1,5 @@
+using System;
+
 namespace SuperDentist.Core
 {
     public class Doctor
@@ -10,9 +12,7 @@ namespace SuperDentist.Core
         public string Specialization { get; set; } = string.Empty;
         public int Salary { get; set; }
         public string Phone { get; set; } = string.Empty;
+        public DateTime CreatedAtUtc { get; set; }
+        public DateTime UpdatedAtUtc { get; set; }
     }
 }
-
-
-
-

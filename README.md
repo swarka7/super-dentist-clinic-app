@@ -26,12 +26,14 @@ Super Dentist is a desktop application for small to mid-size dental clinics. It 
 - Modern WPF desktop app built with .NET 8
 - Clean MVVM architecture + Dependency Injection
 - Application layer for business use cases and service implementations
-- SQLite database (auto-create + seeded demo data)
+- Versioned SQLite schema migrations with in-place upgrades
+- SQLite foreign-key enforcement for clinic relationships
+- SQLite database auto-create + seeded demo data after successful migrations
 - Strong input validation with friendly inline errors
 - Navigation and search/filter lists
 - Appointment conflict detection (prevents double‑booking)
 - Structured logging for troubleshooting
-- Automated unit and integration tests for Application services and SQLite behavior
+- Automated unit and integration tests for Application services, migrations, and SQLite behavior
 
 ## 🛠 Tech Stack
 - C#, .NET 8
@@ -55,7 +57,8 @@ The application project is `SuperDentist.App`. The executable/assembly is brande
 
 First run behavior:
 - A local SQLite database is created automatically
-- Demo data is seeded so the app looks alive immediately
+- Schema migrations run before the app starts using the database
+- Demo data is seeded only after migrations complete successfully
 
 SQLite and logs:
 - Default DB: `%LOCALAPPDATA%\SuperDentist\superdentist.db`
@@ -70,6 +73,7 @@ The test suite includes:
 - Application service unit tests using simple fake repositories, proving business use cases can be tested without SQLite.
 - Integration-style appointment tests that run against isolated temporary SQLite databases.
 - Deterministic, test-owned doctors, patients, treatments, and appointments instead of production demo seed data.
+- Migration tests for empty databases, baseline upgrades, idempotency, foreign-key enforcement, restrictive deletes, and audit timestamps.
 
 ## 🧱 Architecture Overview
 Layer diagram:
@@ -87,28 +91,48 @@ Responsibilities:
 - SuperDentist.App: WPF Views/ViewModels, composition root, DI host, navigation, validation, logging setup, and user messaging
 - SuperDentist.Application: business use cases and service implementations for doctors, patients, treatments, appointments, and patient treatments
 - SuperDentist.Core: domain entities, repository/service contracts, shared results, and options
-- SuperDentist.Infrastructure: SQLite connection management, schema initialization, demo seeding, and repository implementations
+- SuperDentist.Infrastructure: SQLite connection management, schema migrations, demo seeding, and repository implementations
 - SuperDentist.Tests: unit and integration tests
 
 Patterns used:
 - MVVM with `ObservableValidator` and command-based actions
 - Repository + service interfaces for clean boundaries
-- DI for ViewModels, Application services, and Infrastructure repositories
+- DI for ViewModels, Application services, Infrastructure repositories, and database initialization
 
-## 🗄 Data & Seeding
-Seeded demo data is created on first run (doctors, patients, treatments, appointments, patient treatments).
+## 🗄 Data, Migrations & Seeding
+Schema versioning is managed by the Infrastructure layer with a dedicated `SchemaMigrations` table.
+
+Current migrations:
+- Version 1: baseline schema matching the original SQLite table layout.
+- Version 2: foreign-key constraints plus `CreatedAtUtc` and `UpdatedAtUtc` audit columns on mutable clinic entities.
+
+Upgrade behavior:
+- New databases are created by running migrations in order.
+- Existing unversioned databases are adopted as version 1, then upgraded incrementally.
+- Existing user databases are not deleted or recreated during normal initialization.
+- Existing rows receive valid UTC timestamp values during the integrity migration.
+- Demo data seeding runs only after migrations succeed and only when the database has no doctors.
+
+Delete policies:
+- Patient → Doctor: `ON DELETE RESTRICT`
+- Appointment → Patient, Doctor, Treatment: `ON DELETE RESTRICT`
+- PatientTreatment → Patient, Treatment: `ON DELETE RESTRICT`
+
+The restrictive policy prevents silent cascade deletion of medical and scheduling records.
 
 Main entities:
-- Doctor: profile + specialization + salary
-- Patient: profile + assigned doctor + treatment status
-- Treatment: catalog of procedures and pricing
-- Appointment: date/time with doctor + patient
-- PatientTreatment: treatment status and billing info
+- Doctor: profile + specialization + salary + audit timestamps
+- Patient: profile + assigned doctor + treatment status + audit timestamps
+- Treatment: catalog of procedures and pricing + audit timestamps
+- Appointment: date/time with doctor + patient + optional treatment + audit timestamps
+- PatientTreatment: treatment status and billing info + audit timestamps
 
 ## ✅ Quality & Reliability
 - Validation rules: required fields, numeric formats, email format, date/time formats
 - Errors are shown inline; forms reset cleanly after successful saves
 - Global exception handling with clear user messages
+- Migrations run transactionally and are recorded only after success
+- SQLite connections enable `PRAGMA foreign_keys = ON`
 - Logs written to `%LOCALAPPDATA%\SuperDentist\logs\superdentist.log`
 
 ## 🧠 What I Learned

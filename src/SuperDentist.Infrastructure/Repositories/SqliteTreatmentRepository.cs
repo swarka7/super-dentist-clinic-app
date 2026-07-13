@@ -19,7 +19,7 @@ namespace SuperDentist.Infrastructure.Repositories
             var treatments = new List<Treatment>();
             await using var connection = await OpenConnectionAsync(cancellationToken).ConfigureAwait(false);
             await using var command = connection.CreateCommand();
-            command.CommandText = "SELECT Number, Type, Price, Tools FROM Treatments ORDER BY Number;";
+            command.CommandText = "SELECT Number, Type, Price, Tools, CreatedAtUtc, UpdatedAtUtc FROM Treatments ORDER BY Number;";
 
             await using var reader = await command.ExecuteReaderAsync(cancellationToken).ConfigureAwait(false);
             while (await reader.ReadAsync(cancellationToken).ConfigureAwait(false))
@@ -34,7 +34,7 @@ namespace SuperDentist.Infrastructure.Repositories
         {
             await using var connection = await OpenConnectionAsync(cancellationToken).ConfigureAwait(false);
             await using var command = connection.CreateCommand();
-            command.CommandText = "SELECT Number, Type, Price, Tools FROM Treatments WHERE Number = @Number;";
+            command.CommandText = "SELECT Number, Type, Price, Tools, CreatedAtUtc, UpdatedAtUtc FROM Treatments WHERE Number = @Number;";
             command.Parameters.AddWithValue("@Number", number);
 
             await using var reader = await command.ExecuteReaderAsync(cancellationToken).ConfigureAwait(false);
@@ -55,9 +55,9 @@ namespace SuperDentist.Infrastructure.Repositories
         {
             await using var connection = await OpenConnectionAsync(cancellationToken).ConfigureAwait(false);
             await using var command = connection.CreateCommand();
-            command.CommandText = @"INSERT INTO Treatments (Number, Type, Price, Tools)
-                                    VALUES (@Number, @Type, @Price, @Tools);";
-            AddTreatmentParameters(command, treatment);
+            command.CommandText = @"INSERT INTO Treatments (Number, Type, Price, Tools, CreatedAtUtc, UpdatedAtUtc)
+                                    VALUES (@Number, @Type, @Price, @Tools, @CreatedAtUtc, @UpdatedAtUtc);";
+            AddTreatmentParameters(command, treatment, includeCreatedAt: true);
             await command.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
         }
 
@@ -68,9 +68,10 @@ namespace SuperDentist.Infrastructure.Repositories
             command.CommandText = @"UPDATE Treatments
                                     SET Type = @Type,
                                         Price = @Price,
-                                        Tools = @Tools
+                                        Tools = @Tools,
+                                        UpdatedAtUtc = @UpdatedAtUtc
                                     WHERE Number = @Number;";
-            AddTreatmentParameters(command, treatment);
+            AddTreatmentParameters(command, treatment, includeCreatedAt: false);
             await command.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
         }
 
@@ -90,16 +91,25 @@ namespace SuperDentist.Infrastructure.Repositories
                 Number = reader.GetString(0),
                 Type = reader.IsDBNull(1) ? string.Empty : reader.GetString(1),
                 Price = reader.IsDBNull(2) ? 0 : reader.GetInt32(2),
-                Tools = reader.IsDBNull(3) ? string.Empty : reader.GetString(3)
+                Tools = reader.IsDBNull(3) ? string.Empty : reader.GetString(3),
+                CreatedAtUtc = ReadUtcDateTime(reader, 4),
+                UpdatedAtUtc = ReadUtcDateTime(reader, 5)
             };
         }
 
-        private static void AddTreatmentParameters(SqliteCommand command, Treatment treatment)
+        private static void AddTreatmentParameters(SqliteCommand command, Treatment treatment, bool includeCreatedAt)
         {
+            string now = UtcNowText();
             command.Parameters.AddWithValue("@Number", treatment.Number);
             command.Parameters.AddWithValue("@Type", treatment.Type ?? string.Empty);
             command.Parameters.AddWithValue("@Price", treatment.Price);
             command.Parameters.AddWithValue("@Tools", treatment.Tools ?? string.Empty);
+            if (includeCreatedAt)
+            {
+                command.Parameters.AddWithValue("@CreatedAtUtc", now);
+            }
+
+            command.Parameters.AddWithValue("@UpdatedAtUtc", now);
         }
     }
 }

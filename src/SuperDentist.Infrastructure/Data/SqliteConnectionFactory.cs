@@ -28,7 +28,15 @@ namespace SuperDentist.Infrastructure.Data
         {
             var connection = new SqliteConnection(_connectionString);
             await connection.OpenAsync(cancellationToken).ConfigureAwait(false);
+            await EnableForeignKeysAsync(connection, cancellationToken).ConfigureAwait(false);
             return connection;
+        }
+
+        private static async Task EnableForeignKeysAsync(SqliteConnection connection, CancellationToken cancellationToken)
+        {
+            await using var command = connection.CreateCommand();
+            command.CommandText = "PRAGMA foreign_keys = ON;";
+            await command.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
         }
 
         private static string ResolveDatabasePath(DatabaseOptions options)

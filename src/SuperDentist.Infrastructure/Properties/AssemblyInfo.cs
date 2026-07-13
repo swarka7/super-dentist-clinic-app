@@ -38,3 +38,5 @@ using System.Runtime.InteropServices;
 
 
 
+
+[assembly: InternalsVisibleTo("SuperDentist.Tests")]

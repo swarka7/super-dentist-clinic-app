@@ -11,11 +11,13 @@ namespace SuperDentist.Infrastructure.Data
     public sealed class SqliteDatabaseInitializer : IDatabaseInitializer
     {
         private readonly ISqliteConnectionFactory _connectionFactory;
+        private readonly SqliteDatabaseMigrator _migrator;
         private readonly ILogger<SqliteDatabaseInitializer> _logger;
 
-        public SqliteDatabaseInitializer(ISqliteConnectionFactory connectionFactory, ILogger<SqliteDatabaseInitializer> logger)
+        public SqliteDatabaseInitializer(ISqliteConnectionFactory connectionFactory, SqliteDatabaseMigrator migrator, ILogger<SqliteDatabaseInitializer> logger)
         {
             _connectionFactory = connectionFactory;
+            _migrator = migrator;
             _logger = logger;
         }
 
@@ -26,16 +28,16 @@ namespace SuperDentist.Infrastructure.Data
                 string databasePath = _connectionFactory.DatabasePath;
                 Directory.CreateDirectory(Path.GetDirectoryName(databasePath)!);
 
-                await using var connection = await _connectionFactory.OpenConnectionAsync(cancellationToken).ConfigureAwait(false);
-                await ExecuteNonQueryAsync(connection, SqliteSchema.SchemaSql, cancellationToken).ConfigureAwait(false);
+                MigrationResult migrationResult = await _migrator.MigrateAsync(cancellationToken).ConfigureAwait(false);
 
+                await using var connection = await _connectionFactory.OpenConnectionAsync(cancellationToken).ConfigureAwait(false);
                 bool isNew = !await HasRowsAsync(connection, "Doctors", cancellationToken).ConfigureAwait(false);
                 if (isNew)
                 {
                     await SeedAsync(connection, cancellationToken).ConfigureAwait(false);
                 }
 
-                _logger.LogInformation("SQLite database ready at {DatabasePath}", databasePath);
+                _logger.LogInformation("SQLite database ready at {DatabasePath} with schema version {SchemaVersion}", databasePath, migrationResult.CurrentVersion);
                 return new InitializationResult(isNew, databasePath);
             }
             catch (Exception ex)
@@ -45,14 +47,7 @@ namespace SuperDentist.Infrastructure.Data
             }
         }
 
-        private static async Task ExecuteNonQueryAsync(SqliteConnection connection, string sql, CancellationToken cancellationToken)
-        {
-            await using var command = connection.CreateCommand();
-            command.CommandText = sql;
-            await command.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
-        }
-
-        private static async Task<bool> HasRowsAsync(SqliteConnection connection, string tableName, CancellationToken cancellationToken)
+private static async Task<bool> HasRowsAsync(SqliteConnection connection, string tableName, CancellationToken cancellationToken)
         {
             await using var command = connection.CreateCommand();
             command.CommandText = $"SELECT 1 FROM {tableName} LIMIT 1;";

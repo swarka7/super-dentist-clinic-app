@@ -19,7 +19,7 @@ namespace SuperDentist.Infrastructure.Repositories
             var items = new List<PatientTreatment>();
             await using var connection = await OpenConnectionAsync(cancellationToken).ConfigureAwait(false);
             await using var command = connection.CreateCommand();
-            command.CommandText = @"SELECT PatientId, TreatmentNumber, IsCompleted, IsPaid, StartDate
+            command.CommandText = @"SELECT PatientId, TreatmentNumber, IsCompleted, IsPaid, StartDate, CreatedAtUtc, UpdatedAtUtc
                                     FROM PatientTreatments ORDER BY StartDate DESC;";
 
             await using var reader = await command.ExecuteReaderAsync(cancellationToken).ConfigureAwait(false);
@@ -35,7 +35,7 @@ namespace SuperDentist.Infrastructure.Repositories
         {
             await using var connection = await OpenConnectionAsync(cancellationToken).ConfigureAwait(false);
             await using var command = connection.CreateCommand();
-            command.CommandText = @"SELECT PatientId, TreatmentNumber, IsCompleted, IsPaid, StartDate
+            command.CommandText = @"SELECT PatientId, TreatmentNumber, IsCompleted, IsPaid, StartDate, CreatedAtUtc, UpdatedAtUtc
                                     FROM PatientTreatments WHERE PatientId = @PatientId;";
             command.Parameters.AddWithValue("@PatientId", patientId);
 
@@ -57,9 +57,9 @@ namespace SuperDentist.Infrastructure.Repositories
         {
             await using var connection = await OpenConnectionAsync(cancellationToken).ConfigureAwait(false);
             await using var command = connection.CreateCommand();
-            command.CommandText = @"INSERT INTO PatientTreatments (PatientId, TreatmentNumber, IsCompleted, IsPaid, StartDate)
-                                    VALUES (@PatientId, @TreatmentNumber, @IsCompleted, @IsPaid, @StartDate);";
-            AddParameters(command, patientTreatment);
+            command.CommandText = @"INSERT INTO PatientTreatments (PatientId, TreatmentNumber, IsCompleted, IsPaid, StartDate, CreatedAtUtc, UpdatedAtUtc)
+                                    VALUES (@PatientId, @TreatmentNumber, @IsCompleted, @IsPaid, @StartDate, @CreatedAtUtc, @UpdatedAtUtc);";
+            AddParameters(command, patientTreatment, includeCreatedAt: true);
             await command.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
         }
 
@@ -71,9 +71,10 @@ namespace SuperDentist.Infrastructure.Repositories
                                     SET TreatmentNumber = @TreatmentNumber,
                                         IsCompleted = @IsCompleted,
                                         IsPaid = @IsPaid,
-                                        StartDate = @StartDate
+                                        StartDate = @StartDate,
+                                        UpdatedAtUtc = @UpdatedAtUtc
                                     WHERE PatientId = @PatientId;";
-            AddParameters(command, patientTreatment);
+            AddParameters(command, patientTreatment, includeCreatedAt: false);
             await command.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
         }
 
@@ -94,17 +95,26 @@ namespace SuperDentist.Infrastructure.Repositories
                 TreatmentNumber = reader.GetString(1),
                 IsCompleted = reader.IsDBNull(2) ? string.Empty : reader.GetString(2),
                 IsPaid = reader.IsDBNull(3) ? string.Empty : reader.GetString(3),
-                StartDate = reader.IsDBNull(4) ? string.Empty : reader.GetString(4)
+                StartDate = reader.IsDBNull(4) ? string.Empty : reader.GetString(4),
+                CreatedAtUtc = ReadUtcDateTime(reader, 5),
+                UpdatedAtUtc = ReadUtcDateTime(reader, 6)
             };
         }
 
-        private static void AddParameters(SqliteCommand command, PatientTreatment patientTreatment)
+        private static void AddParameters(SqliteCommand command, PatientTreatment patientTreatment, bool includeCreatedAt)
         {
+            string now = UtcNowText();
             command.Parameters.AddWithValue("@PatientId", patientTreatment.PatientId);
             command.Parameters.AddWithValue("@TreatmentNumber", patientTreatment.TreatmentNumber ?? string.Empty);
             command.Parameters.AddWithValue("@IsCompleted", patientTreatment.IsCompleted ?? string.Empty);
             command.Parameters.AddWithValue("@IsPaid", patientTreatment.IsPaid ?? string.Empty);
             command.Parameters.AddWithValue("@StartDate", patientTreatment.StartDate ?? string.Empty);
+            if (includeCreatedAt)
+            {
+                command.Parameters.AddWithValue("@CreatedAtUtc", now);
+            }
+
+            command.Parameters.AddWithValue("@UpdatedAtUtc", now);
         }
     }
 }

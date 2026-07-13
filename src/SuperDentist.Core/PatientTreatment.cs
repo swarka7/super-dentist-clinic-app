@@ -1,8 +1,4 @@
 using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace SuperDentist.Core
 {
@@ -13,6 +9,7 @@ namespace SuperDentist.Core
         public string IsCompleted { get; set; } = string.Empty;
         public string StartDate { get; set; } = string.Empty;
         public string PatientId { get; set; } = string.Empty;
+        public DateTime CreatedAtUtc { get; set; }
+        public DateTime UpdatedAtUtc { get; set; }
     }
 }
-

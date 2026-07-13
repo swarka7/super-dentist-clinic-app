@@ -11,6 +11,7 @@ namespace SuperDentist.Infrastructure
         public static IServiceCollection AddSuperDentistInfrastructure(this IServiceCollection services)
         {
             services.AddSingleton<ISqliteConnectionFactory, SqliteConnectionFactory>();
+            services.AddSingleton<SqliteDatabaseMigrator>();
             services.AddSingleton<IDatabaseInitializer, SqliteDatabaseInitializer>();
 
             services.AddSingleton<IDoctorRepository, SqliteDoctorRepository>();

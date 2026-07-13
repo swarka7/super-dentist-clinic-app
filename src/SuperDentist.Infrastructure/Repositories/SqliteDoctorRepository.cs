@@ -19,7 +19,8 @@ namespace SuperDentist.Infrastructure.Repositories
             var doctors = new List<Doctor>();
             await using var connection = await OpenConnectionAsync(cancellationToken).ConfigureAwait(false);
             await using var command = connection.CreateCommand();
-            command.CommandText = "SELECT Id, FirstName, LastName, Phone, Address, Email, Specialization, Salary FROM Doctors ORDER BY LastName, FirstName;";
+            command.CommandText = @"SELECT Id, FirstName, LastName, Phone, Address, Email, Specialization, Salary, CreatedAtUtc, UpdatedAtUtc
+                                    FROM Doctors ORDER BY LastName, FirstName;";
 
             await using var reader = await command.ExecuteReaderAsync(cancellationToken).ConfigureAwait(false);
             while (await reader.ReadAsync(cancellationToken).ConfigureAwait(false))
@@ -34,7 +35,8 @@ namespace SuperDentist.Infrastructure.Repositories
         {
             await using var connection = await OpenConnectionAsync(cancellationToken).ConfigureAwait(false);
             await using var command = connection.CreateCommand();
-            command.CommandText = "SELECT Id, FirstName, LastName, Phone, Address, Email, Specialization, Salary FROM Doctors WHERE Id = @Id;";
+            command.CommandText = @"SELECT Id, FirstName, LastName, Phone, Address, Email, Specialization, Salary, CreatedAtUtc, UpdatedAtUtc
+                                    FROM Doctors WHERE Id = @Id;";
             command.Parameters.AddWithValue("@Id", id);
 
             await using var reader = await command.ExecuteReaderAsync(cancellationToken).ConfigureAwait(false);
@@ -55,9 +57,9 @@ namespace SuperDentist.Infrastructure.Repositories
         {
             await using var connection = await OpenConnectionAsync(cancellationToken).ConfigureAwait(false);
             await using var command = connection.CreateCommand();
-            command.CommandText = @"INSERT INTO Doctors (Id, FirstName, LastName, Phone, Address, Email, Specialization, Salary)
-                                    VALUES (@Id, @FirstName, @LastName, @Phone, @Address, @Email, @Specialization, @Salary);";
-            AddDoctorParameters(command, doctor);
+            command.CommandText = @"INSERT INTO Doctors (Id, FirstName, LastName, Phone, Address, Email, Specialization, Salary, CreatedAtUtc, UpdatedAtUtc)
+                                    VALUES (@Id, @FirstName, @LastName, @Phone, @Address, @Email, @Specialization, @Salary, @CreatedAtUtc, @UpdatedAtUtc);";
+            AddDoctorParameters(command, doctor, includeCreatedAt: true);
             await command.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
         }
 
@@ -72,9 +74,10 @@ namespace SuperDentist.Infrastructure.Repositories
                                         Address = @Address,
                                         Email = @Email,
                                         Specialization = @Specialization,
-                                        Salary = @Salary
+                                        Salary = @Salary,
+                                        UpdatedAtUtc = @UpdatedAtUtc
                                     WHERE Id = @Id;";
-            AddDoctorParameters(command, doctor);
+            AddDoctorParameters(command, doctor, includeCreatedAt: false);
             await command.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
         }
 
@@ -98,12 +101,15 @@ namespace SuperDentist.Infrastructure.Repositories
                 Address = reader.IsDBNull(4) ? string.Empty : reader.GetString(4),
                 Email = reader.IsDBNull(5) ? string.Empty : reader.GetString(5),
                 Specialization = reader.IsDBNull(6) ? string.Empty : reader.GetString(6),
-                Salary = reader.IsDBNull(7) ? 0 : reader.GetInt32(7)
+                Salary = reader.IsDBNull(7) ? 0 : reader.GetInt32(7),
+                CreatedAtUtc = ReadUtcDateTime(reader, 8),
+                UpdatedAtUtc = ReadUtcDateTime(reader, 9)
             };
         }
 
-        private static void AddDoctorParameters(SqliteCommand command, Doctor doctor)
+        private static void AddDoctorParameters(SqliteCommand command, Doctor doctor, bool includeCreatedAt)
         {
+            string now = UtcNowText();
             command.Parameters.AddWithValue("@Id", doctor.Id);
             command.Parameters.AddWithValue("@FirstName", doctor.FirstName);
             command.Parameters.AddWithValue("@LastName", doctor.LastName);
@@ -112,6 +118,12 @@ namespace SuperDentist.Infrastructure.Repositories
             command.Parameters.AddWithValue("@Email", doctor.Email ?? string.Empty);
             command.Parameters.AddWithValue("@Specialization", doctor.Specialization ?? string.Empty);
             command.Parameters.AddWithValue("@Salary", doctor.Salary);
+            if (includeCreatedAt)
+            {
+                command.Parameters.AddWithValue("@CreatedAtUtc", now);
+            }
+
+            command.Parameters.AddWithValue("@UpdatedAtUtc", now);
         }
     }
 }

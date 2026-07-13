@@ -17,6 +17,10 @@ namespace SuperDentist.Tests
             using var database = await SqliteTestDatabase.CreateAsync();
             var service = CreateService(database);
 
+            await database.SeedAppointmentReferencesAsync(
+                ("900000001", "800000001", "T001"),
+                ("900000002", "800000001", "T002"));
+
             var appointment = CreateAppointment(
                 patientId: "900000001",
                 doctorId: "800000001",
@@ -43,6 +47,10 @@ namespace SuperDentist.Tests
         {
             using var database = await SqliteTestDatabase.CreateAsync();
             var service = CreateService(database);
+
+            await database.SeedAppointmentReferencesAsync(
+                ("900000101", "800000101", "T101"),
+                ("900000102", "800000102", "T102"));
 
             var appointment = CreateAppointment(
                 patientId: "900000101",
@@ -71,6 +79,10 @@ namespace SuperDentist.Tests
             using var database = await SqliteTestDatabase.CreateAsync();
             var service = CreateService(database);
 
+            await database.SeedAppointmentReferencesAsync(
+                ("900000201", "800000201", "T201"),
+                ("900000202", "800000202", "T202"));
+
             var first = await service.AddAsync(CreateAppointment(
                 patientId: "900000201",
                 doctorId: "800000201",
@@ -95,6 +107,10 @@ namespace SuperDentist.Tests
         {
             using var database = await SqliteTestDatabase.CreateAsync();
             var service = CreateService(database);
+
+            await database.SeedAppointmentReferencesAsync(
+                ("900000301", "800000301", "T301"),
+                ("900000302", "800000301", "T302"));
 
             var first = await service.AddAsync(CreateAppointment(
                 patientId: "900000301",

@@ -19,7 +19,7 @@ namespace SuperDentist.Infrastructure.Repositories
             var appointments = new List<Appointment>();
             await using var connection = await OpenConnectionAsync(cancellationToken).ConfigureAwait(false);
             await using var command = connection.CreateCommand();
-            command.CommandText = @"SELECT PatientId, DoctorId, Date, Time, TreatmentNumber
+            command.CommandText = @"SELECT PatientId, DoctorId, Date, Time, TreatmentNumber, CreatedAtUtc, UpdatedAtUtc
                                     FROM Appointments ORDER BY Date, Time;";
 
             await using var reader = await command.ExecuteReaderAsync(cancellationToken).ConfigureAwait(false);
@@ -35,7 +35,7 @@ namespace SuperDentist.Infrastructure.Repositories
         {
             await using var connection = await OpenConnectionAsync(cancellationToken).ConfigureAwait(false);
             await using var command = connection.CreateCommand();
-            command.CommandText = @"SELECT PatientId, DoctorId, Date, Time, TreatmentNumber
+            command.CommandText = @"SELECT PatientId, DoctorId, Date, Time, TreatmentNumber, CreatedAtUtc, UpdatedAtUtc
                                     FROM Appointments WHERE PatientId = @PatientId;";
             command.Parameters.AddWithValue("@PatientId", patientId);
 
@@ -48,7 +48,7 @@ namespace SuperDentist.Infrastructure.Repositories
             var appointments = new List<Appointment>();
             await using var connection = await OpenConnectionAsync(cancellationToken).ConfigureAwait(false);
             await using var command = connection.CreateCommand();
-            command.CommandText = @"SELECT PatientId, DoctorId, Date, Time, TreatmentNumber
+            command.CommandText = @"SELECT PatientId, DoctorId, Date, Time, TreatmentNumber, CreatedAtUtc, UpdatedAtUtc
                                     FROM Appointments WHERE Date = @Date ORDER BY Time;";
             command.Parameters.AddWithValue("@Date", date);
 
@@ -89,9 +89,9 @@ namespace SuperDentist.Infrastructure.Repositories
         {
             await using var connection = await OpenConnectionAsync(cancellationToken).ConfigureAwait(false);
             await using var command = connection.CreateCommand();
-            command.CommandText = @"INSERT INTO Appointments (PatientId, DoctorId, Date, Time, TreatmentNumber)
-                                    VALUES (@PatientId, @DoctorId, @Date, @Time, @TreatmentNumber);";
-            AddAppointmentParameters(command, appointment);
+            command.CommandText = @"INSERT INTO Appointments (PatientId, DoctorId, Date, Time, TreatmentNumber, CreatedAtUtc, UpdatedAtUtc)
+                                    VALUES (@PatientId, @DoctorId, @Date, @Time, @TreatmentNumber, @CreatedAtUtc, @UpdatedAtUtc);";
+            AddAppointmentParameters(command, appointment, includeCreatedAt: true);
             await command.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
         }
 
@@ -103,9 +103,10 @@ namespace SuperDentist.Infrastructure.Repositories
                                     SET DoctorId = @DoctorId,
                                         Date = @Date,
                                         Time = @Time,
-                                        TreatmentNumber = @TreatmentNumber
+                                        TreatmentNumber = @TreatmentNumber,
+                                        UpdatedAtUtc = @UpdatedAtUtc
                                     WHERE PatientId = @PatientId;";
-            AddAppointmentParameters(command, appointment);
+            AddAppointmentParameters(command, appointment, includeCreatedAt: false);
             await command.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
         }
 
@@ -126,17 +127,26 @@ namespace SuperDentist.Infrastructure.Repositories
                 DoctorId = reader.GetString(1),
                 Date = reader.GetString(2),
                 Time = reader.GetString(3),
-                TreatmentNumber = reader.IsDBNull(4) ? string.Empty : reader.GetString(4)
+                TreatmentNumber = reader.IsDBNull(4) ? string.Empty : reader.GetString(4),
+                CreatedAtUtc = ReadUtcDateTime(reader, 5),
+                UpdatedAtUtc = ReadUtcDateTime(reader, 6)
             };
         }
 
-        private static void AddAppointmentParameters(SqliteCommand command, Appointment appointment)
+        private static void AddAppointmentParameters(SqliteCommand command, Appointment appointment, bool includeCreatedAt)
         {
+            string now = UtcNowText();
             command.Parameters.AddWithValue("@PatientId", appointment.PatientId);
             command.Parameters.AddWithValue("@DoctorId", appointment.DoctorId);
             command.Parameters.AddWithValue("@Date", appointment.Date);
             command.Parameters.AddWithValue("@Time", appointment.Time);
-            command.Parameters.AddWithValue("@TreatmentNumber", appointment.TreatmentNumber ?? string.Empty);
+            command.Parameters.AddWithValue("@TreatmentNumber", DbNullableText(appointment.TreatmentNumber));
+            if (includeCreatedAt)
+            {
+                command.Parameters.AddWithValue("@CreatedAtUtc", now);
+            }
+
+            command.Parameters.AddWithValue("@UpdatedAtUtc", now);
         }
     }
 }
