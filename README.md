@@ -2,7 +2,7 @@
 
 [![CI](https://github.com/swarka7/super-dentist-clinic-app/actions/workflows/ci.yml/badge.svg)](https://github.com/swarka7/super-dentist-clinic-app/actions/workflows/ci.yml)
 
-Super Dentist is a portfolio full-stack clinic-management system. A .NET 8 WPF desktop client owns clinic write workflows, while a read-only React dashboard consumes an ASP.NET Core reporting API. The WPF and API composition roots reuse the same Application, Core, Infrastructure, and SQLite implementation.
+Super Dentist is a full-stack clinic-management system. A .NET 8 WPF desktop client owns clinic write workflows, while a read-only React dashboard consumes an ASP.NET Core reporting API. The WPF and API composition roots reuse the same Application, Core, Infrastructure, and SQLite implementation.
 
 ![Super Dentist operations dashboard](docs/screenshots/web/dashboard.png)
 
