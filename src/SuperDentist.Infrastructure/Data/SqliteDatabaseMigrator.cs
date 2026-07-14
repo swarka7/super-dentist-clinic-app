@@ -55,23 +55,7 @@ namespace SuperDentist.Infrastructure.Data
             }
 
             await using var connection = await _connectionFactory.OpenConnectionAsync(cancellationToken).ConfigureAwait(false);
-            bool migrationTableExists = await TableExistsAsync(connection, SqliteSchema.MigrationTableName, cancellationToken).ConfigureAwait(false);
-
-            if (!migrationTableExists)
-            {
-                bool hasBaselineTables = await AnyBaselineTableExistsAsync(connection, cancellationToken).ConfigureAwait(false);
-                if (hasBaselineTables)
-                {
-                    await EnsureBaselineTablesExistAsync(connection, cancellationToken).ConfigureAwait(false);
-                }
-
-                await CreateMigrationTableAsync(connection, cancellationToken).ConfigureAwait(false);
-
-                if (hasBaselineTables)
-                {
-                    await AdoptExistingBaselineAsync(connection, cancellationToken).ConfigureAwait(false);
-                }
-            }
+            await EnsureMigrationHistoryAsync(connection, cancellationToken).ConfigureAwait(false);
 
             var appliedVersions = await GetAppliedVersionsAsync(connection, cancellationToken).ConfigureAwait(false);
             var newlyAppliedVersions = new List<int>();
@@ -83,20 +67,39 @@ namespace SuperDentist.Infrastructure.Data
                     continue;
                 }
 
-                await ApplyMigrationAsync(connection, migration, cancellationToken).ConfigureAwait(false);
+                bool appliedNow = await ApplyMigrationAsync(
+                    connection,
+                    migration,
+                    cancellationToken).ConfigureAwait(false);
                 appliedVersions.Add(migration.Version);
-                newlyAppliedVersions.Add(migration.Version);
+                if (appliedNow)
+                {
+                    newlyAppliedVersions.Add(migration.Version);
+                }
             }
 
             int currentVersion = appliedVersions.Count == 0 ? 0 : appliedVersions.Max();
             return new MigrationResult(currentVersion, newlyAppliedVersions);
         }
 
-        private async Task ApplyMigrationAsync(SqliteConnection connection, SqliteMigration migration, CancellationToken cancellationToken)
+        private async Task<bool> ApplyMigrationAsync(
+            SqliteConnection connection,
+            SqliteMigration migration,
+            CancellationToken cancellationToken)
         {
-            using var transaction = connection.BeginTransaction();
+            using var transaction = connection.BeginTransaction(deferred: false);
             try
             {
+                if (await IsMigrationAppliedAsync(
+                    connection,
+                    transaction,
+                    migration.Version,
+                    cancellationToken).ConfigureAwait(false))
+                {
+                    transaction.Commit();
+                    return false;
+                }
+
                 await ExecuteNonQueryAsync(connection, transaction, migration.Sql, cancellationToken).ConfigureAwait(false);
 
                 if (migration.Version >= SqliteSchema.IntegrityVersion)
@@ -107,6 +110,7 @@ namespace SuperDentist.Infrastructure.Data
                 await RecordMigrationAsync(connection, transaction, migration.Version, migration.Name, cancellationToken).ConfigureAwait(false);
                 transaction.Commit();
                 _logger.LogInformation("Applied SQLite migration {Version}: {Name}", migration.Version, migration.Name);
+                return true;
             }
             catch (Exception ex)
             {
@@ -116,17 +120,75 @@ namespace SuperDentist.Infrastructure.Data
             }
         }
 
-        private async Task AdoptExistingBaselineAsync(SqliteConnection connection, CancellationToken cancellationToken)
+        private async Task EnsureMigrationHistoryAsync(
+            SqliteConnection connection,
+            CancellationToken cancellationToken)
         {
-            using var transaction = connection.BeginTransaction();
-            await RecordMigrationAsync(connection, transaction, SqliteSchema.BaselineVersion, "Existing baseline schema", cancellationToken).ConfigureAwait(false);
-            transaction.Commit();
-            _logger.LogInformation("Adopted existing SQLite database as schema baseline version {Version}", SqliteSchema.BaselineVersion);
+            using var transaction = connection.BeginTransaction(deferred: false);
+            bool adoptedBaseline = false;
+
+            try
+            {
+                bool migrationTableExists = await TableExistsAsync(
+                    connection,
+                    transaction,
+                    SqliteSchema.MigrationTableName,
+                    cancellationToken).ConfigureAwait(false);
+
+                if (!migrationTableExists)
+                {
+                    await CreateMigrationTableAsync(connection, transaction, cancellationToken).ConfigureAwait(false);
+                }
+
+                bool hasAppliedMigrations = await HasAppliedMigrationsAsync(
+                    connection,
+                    transaction,
+                    cancellationToken).ConfigureAwait(false);
+                if (!hasAppliedMigrations)
+                {
+                    bool hasBaselineTables = await AnyBaselineTableExistsAsync(
+                        connection,
+                        transaction,
+                        cancellationToken).ConfigureAwait(false);
+                    if (hasBaselineTables)
+                    {
+                        await EnsureBaselineTablesExistAsync(
+                            connection,
+                            transaction,
+                            cancellationToken).ConfigureAwait(false);
+                        await RecordMigrationAsync(
+                            connection,
+                            transaction,
+                            SqliteSchema.BaselineVersion,
+                            "Existing baseline schema",
+                            cancellationToken).ConfigureAwait(false);
+                        adoptedBaseline = true;
+                    }
+                }
+
+                transaction.Commit();
+            }
+            catch
+            {
+                TryRollback(transaction);
+                throw;
+            }
+
+            if (adoptedBaseline)
+            {
+                _logger.LogInformation(
+                    "Adopted existing SQLite database as schema baseline version {Version}",
+                    SqliteSchema.BaselineVersion);
+            }
         }
 
-        private static async Task CreateMigrationTableAsync(SqliteConnection connection, CancellationToken cancellationToken)
+        private static async Task CreateMigrationTableAsync(
+            SqliteConnection connection,
+            SqliteTransaction transaction,
+            CancellationToken cancellationToken)
         {
             await using var command = connection.CreateCommand();
+            command.Transaction = transaction;
             command.CommandText = $@"
 CREATE TABLE {SqliteSchema.MigrationTableName} (
     Version INTEGER PRIMARY KEY,
@@ -134,6 +196,30 @@ CREATE TABLE {SqliteSchema.MigrationTableName} (
     AppliedAtUtc TEXT NOT NULL
 );";
             await command.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
+        }
+
+        private static async Task<bool> HasAppliedMigrationsAsync(
+            SqliteConnection connection,
+            SqliteTransaction transaction,
+            CancellationToken cancellationToken)
+        {
+            await using var command = connection.CreateCommand();
+            command.Transaction = transaction;
+            command.CommandText = $"SELECT 1 FROM {SqliteSchema.MigrationTableName} LIMIT 1;";
+            return await command.ExecuteScalarAsync(cancellationToken).ConfigureAwait(false) != null;
+        }
+
+        private static async Task<bool> IsMigrationAppliedAsync(
+            SqliteConnection connection,
+            SqliteTransaction transaction,
+            int version,
+            CancellationToken cancellationToken)
+        {
+            await using var command = connection.CreateCommand();
+            command.Transaction = transaction;
+            command.CommandText = $"SELECT 1 FROM {SqliteSchema.MigrationTableName} WHERE Version = @Version LIMIT 1;";
+            command.Parameters.AddWithValue("@Version", version);
+            return await command.ExecuteScalarAsync(cancellationToken).ConfigureAwait(false) != null;
         }
 
         private static async Task<HashSet<int>> GetAppliedVersionsAsync(SqliteConnection connection, CancellationToken cancellationToken)
@@ -172,20 +258,32 @@ VALUES (@Version, @Name, @AppliedAtUtc);";
             await command.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
         }
 
-        private static async Task<bool> TableExistsAsync(SqliteConnection connection, string tableName, CancellationToken cancellationToken)
+        private static async Task<bool> TableExistsAsync(
+            SqliteConnection connection,
+            SqliteTransaction transaction,
+            string tableName,
+            CancellationToken cancellationToken)
         {
             await using var command = connection.CreateCommand();
+            command.Transaction = transaction;
             command.CommandText = "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = @Name LIMIT 1;";
             command.Parameters.AddWithValue("@Name", tableName);
             object? result = await command.ExecuteScalarAsync(cancellationToken).ConfigureAwait(false);
             return result != null;
         }
 
-        private static async Task<bool> AnyBaselineTableExistsAsync(SqliteConnection connection, CancellationToken cancellationToken)
+        private static async Task<bool> AnyBaselineTableExistsAsync(
+            SqliteConnection connection,
+            SqliteTransaction transaction,
+            CancellationToken cancellationToken)
         {
             foreach (string tableName in BaselineTables)
             {
-                if (await TableExistsAsync(connection, tableName, cancellationToken).ConfigureAwait(false))
+                if (await TableExistsAsync(
+                    connection,
+                    transaction,
+                    tableName,
+                    cancellationToken).ConfigureAwait(false))
                 {
                     return true;
                 }
@@ -194,12 +292,19 @@ VALUES (@Version, @Name, @AppliedAtUtc);";
             return false;
         }
 
-        private static async Task EnsureBaselineTablesExistAsync(SqliteConnection connection, CancellationToken cancellationToken)
+        private static async Task EnsureBaselineTablesExistAsync(
+            SqliteConnection connection,
+            SqliteTransaction transaction,
+            CancellationToken cancellationToken)
         {
             var missingTables = new List<string>();
             foreach (string tableName in BaselineTables)
             {
-                if (!await TableExistsAsync(connection, tableName, cancellationToken).ConfigureAwait(false))
+                if (!await TableExistsAsync(
+                    connection,
+                    transaction,
+                    tableName,
+                    cancellationToken).ConfigureAwait(false))
                 {
                     missingTables.Add(tableName);
                 }

@@ -81,6 +81,47 @@ VALUES ('P100', 'D100', '2030-07-01', '11:00', 'T100');
         }
 
         [Fact]
+        public async Task MigrateAsync_WhenHistoryTableIsEmpty_AdoptsBaselineWithoutDataLoss()
+        {
+            using var database = await SqliteTestDatabase.CreateAtMigrationVersionAsync(
+                SqliteSchema.BaselineVersion);
+            await database.ExecuteAsync(@"
+INSERT INTO Doctors (Id, FirstName, LastName, Phone, Address, Email, Specialization, Salary)
+VALUES ('RECOVERY-D1', 'Recovery', 'Doctor', '0500000000', '1 Recovery St', 'recovery@example.com', 'General', 9000);
+DELETE FROM SchemaMigrations;
+");
+
+            MigrationResult result = await database.MigrateToLatestAsync();
+
+            Assert.Equal(SqliteSchema.LatestVersion, result.CurrentVersion);
+            Assert.Equal(3L, await CountAsync(database, SqliteSchema.MigrationTableName));
+            Assert.Equal(
+                "Recovery",
+                await database.ScalarAsync("SELECT FirstName FROM Doctors WHERE Id = 'RECOVERY-D1';"));
+            Assert.Equal(
+                "Existing baseline schema",
+                await database.ScalarAsync("SELECT Name FROM SchemaMigrations WHERE Version = 1;"));
+        }
+
+        [Fact]
+        public async Task MigrateAsync_WhenTwoInitializersRunConcurrently_AppliesEachVersionOnce()
+        {
+            using var database = await SqliteTestDatabase.CreateAtMigrationVersionAsync(
+                SqliteSchema.BaselineVersion);
+
+            MigrationResult[] results = await Task.WhenAll(
+                database.MigrateToLatestAsync(),
+                database.MigrateToLatestAsync());
+
+            Assert.All(results, result => Assert.Equal(SqliteSchema.LatestVersion, result.CurrentVersion));
+            Assert.Equal(3L, await CountAsync(database, SqliteSchema.MigrationTableName));
+            Assert.Equal(
+                3L,
+                Convert.ToInt64(await database.ScalarAsync(
+                    "SELECT COUNT(DISTINCT Version) FROM SchemaMigrations;")));
+        }
+
+        [Fact]
         public async Task MigrateAsync_WhenRunMultipleTimes_IsIdempotent()
         {
             using var database = await SqliteTestDatabase.CreateAsync();

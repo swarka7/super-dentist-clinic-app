@@ -1,76 +1,116 @@
 # Super Dentist
+
 [![CI](https://github.com/swarka7/super-dentist-clinic-app/actions/workflows/ci.yml/badge.svg)](https://github.com/swarka7/super-dentist-clinic-app/actions/workflows/ci.yml)
 
-Full-stack .NET 8 clinic management with a WPF operations client, ASP.NET Core reporting API, and React operations dashboard.
+Super Dentist is a portfolio full-stack clinic-management system. A .NET 8 WPF desktop client owns clinic write workflows, while a read-only React dashboard consumes an ASP.NET Core reporting API. The WPF and API composition roots reuse the same Application, Core, Infrastructure, and SQLite implementation.
 
-Why this exists: many small clinics still rely on spreadsheets or legacy software. Super Dentist is a clean, modern clinic platform built to be fast, understandable, and maintainable.
+![Super Dentist operations dashboard](docs/screenshots/web/dashboard.png)
 
-## 📸 Screenshots
-WPF client captures included in the repository:
+The repository demonstrates a layered desktop and web system in a local, trusted environment. It uses synthetic seeded records only; it is not presented as a deployed or compliance-certified healthcare product.
 
-1. Dashboard / Today view  
-   `docs/screenshots/screenshot-dashboard.png`
-2. Doctors management  
-   `docs/screenshots/screenshot-doctors.png`
-3. Patients management + validation  
-   `docs/screenshots/screenshot-patients.png`
-4. Appointments + conflict validation  
-   `docs/screenshots/screenshot-appointments.png`
-5. Treatments catalog  
-   `docs/screenshots/screenshot-treatments.png`
-6. Patient treatments  
-   `docs/screenshots/screenshot-patient-treatments.png`
-7. Reports  
-   `docs/screenshots/screenshot-reports.png`
+## What The System Does
 
-Web portfolio captures should use these exact paths when captured from live API data:
+The WPF client supports:
 
-1. Operations dashboard
-   `docs/screenshots/screenshot-web-dashboard.png`
-2. Read-only audit history
-   `docs/screenshots/screenshot-web-audit.png`
+- doctor, patient, treatment, appointment, and patient-treatment management;
+- appointment conflict checks;
+- operational reports and printing;
+- field validation and user-facing error handling;
+- read-only audit-history search and before/after inspection.
 
-## 🚀 Overview
-Super Dentist is a clinic management platform for small to mid-size dental clinics. Its WPF client handles daily write operations such as doctors, patients, treatments, and appointments. A read-only ASP.NET Core API serves the React operations dashboard and other reporting consumers without duplicating business logic. The platform is designed for simple front-desk workflows with maintainable engineering boundaries.
+The web client supports read-only operational review:
 
-## ✨ Key Features
-- Modern WPF desktop app built with .NET 8
-- Read-only ASP.NET Core Web API with OpenAPI/Swagger
-- Responsive React and TypeScript clinic operations dashboard
-- Clean MVVM architecture + Dependency Injection
-- Application layer for business use cases and service implementations
-- Application-owned clinic list queries and dashboard aggregation
-- Versioned SQLite schema migrations with in-place upgrades
-- SQLite foreign-key enforcement for clinic relationships
-- SQLite database auto-create + seeded demo data after successful migrations
-- Strong input validation with friendly inline errors
-- Navigation and search/filter lists
-- Appointment conflict detection (prevents double‑booking)
-- Persistent, searchable, read-only audit history for clinic data changes
-- Structured logging for troubleshooting
-- Automated unit and integration tests for Application services, migrations, and SQLite behavior
+- clinic summary metrics and upcoming appointments;
+- searchable, bounded doctor and patient lists;
+- appointment filtering by text, doctor, patient, and date range;
+- newest-first audit search with formatted before/after JSON.
 
-## 🛠 Tech Stack
-- C#, .NET 8
-- WPF
-- ASP.NET Core Web API
-- React, TypeScript, and Vite
-- OpenAPI / Swagger
-- MVVM (CommunityToolkit.Mvvm)
-- Dependency Injection (Microsoft.Extensions.*)
-- SQLite
-- Serilog logging
-- xUnit tests
-- Vitest and Testing Library
-- GitHub Actions CI and build artifacts
+The API exposes only read endpoints. The WPF client remains the only clinic write client.
 
-## ⚡ Quick Start
-Requirements:
-- Windows 10/11 to run the WPF client; the API and React client are cross-platform
-- The .NET SDK selected by `global.json`
-- The Node.js version selected by `.nvmrc`
+## Architecture
 
-Install dependencies once:
+```mermaid
+flowchart LR
+    Web[React + TypeScript] -->|REST / JSON| Api[ASP.NET Core API]
+    Desktop[WPF desktop client] --> Application[Application use cases]
+    Api --> Application
+    Desktop --> Infrastructure[SQLite Infrastructure]
+    Api --> Infrastructure
+    Desktop --> Core[Core models and contracts]
+    Api --> Core
+    Application --> Core
+    Infrastructure --> Core
+    Infrastructure --> Database[(SQLite)]
+```
+
+Dependency rules enforced by project references:
+
+- `SuperDentist.Core` has no project dependencies.
+- `SuperDentist.Application` depends only on Core.
+- `SuperDentist.Infrastructure` depends only on Core.
+- `SuperDentist.App` and `SuperDentist.Api` are separate composition roots.
+- `SuperDentist.Web` communicates only with the API and has no database access.
+
+See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for request, transaction, migration, audit, and testing flows.
+
+## Engineering Features
+
+- MVVM desktop client using `CommunityToolkit.Mvvm` and dependency injection.
+- Application-owned business services, bounded list queries, and dashboard aggregation.
+- Repository contracts in Core with parameterized SQLite implementations in Infrastructure.
+- Versioned, ordered SQLite migrations with transactional application and recovery of interrupted baseline adoption.
+- Foreign-key enforcement on every opened connection and restrictive delete policies.
+- Atomic entity mutation and application audit insertion through one connection and transaction.
+- Append-only audit storage guarded by repository contracts and SQLite triggers.
+- Deterministic, key-ordered JSON audit snapshots and replaceable current-actor abstraction.
+- Dedicated API response DTOs, validation problem responses, sanitized exception handling, health checks, Swagger, and structured request logging.
+- Centralized typed frontend API client with cancellation, retryable errors, bounded paging, and safe malformed-JSON display.
+- Isolated temporary SQLite integration tests plus SQLite-free Application unit tests.
+- Independent backend and frontend GitHub Actions jobs with published verification artifacts.
+
+## Technology Stack
+
+| Area | Technology |
+| --- | --- |
+| Desktop | .NET 8, WPF, MVVM, CommunityToolkit.Mvvm |
+| API | ASP.NET Core controllers, OpenAPI/Swagger, health checks |
+| Web | React, TypeScript, Vite, React Router, Lucide icons |
+| Application | C# services, explicit query/response models, dependency injection |
+| Persistence | SQLite, parameterized SQL, custom lightweight migrations |
+| Logging | Serilog for WPF; structured JSON console logging for the API |
+| Backend tests | xUnit, ASP.NET Core `WebApplicationFactory`, temporary SQLite databases |
+| Frontend tests | Vitest, Testing Library, jsdom |
+| Automation | PowerShell, Node.js, GitHub Actions |
+
+## Project Structure
+
+```text
+src/
+  SuperDentist.App/             WPF UI, ViewModels, navigation, validation, composition root
+  SuperDentist.Api/             Read-only HTTP boundary, DTOs, Swagger, health, API composition root
+  SuperDentist.Web/             React dashboard, routes, typed API client, frontend tests
+  SuperDentist.Application/     Business use cases, queries, dashboard and audit services
+  SuperDentist.Core/            Domain models, repository/service/transaction contracts
+  SuperDentist.Infrastructure/  SQLite connections, repositories, migrations, transactions, seeding
+tests/
+  SuperDentist.Tests/           Backend unit, persistence, transaction, migration, and API tests
+scripts/                         Development launchers and verification scripts
+docs/screenshots/               Current web and desktop captures from seeded demo data
+.github/workflows/ci.yml         Backend and frontend continuous integration
+```
+
+`SuperDentist.App` is the WPF project. Its branded assembly and executable are named `Super Dentist`, so a local build produces `Super Dentist.exe`.
+
+## Prerequisites
+
+- .NET SDK `8.0.417` or a compatible feature-band SDK selected by `global.json`.
+- Node.js `22.14.0` as recorded in `.nvmrc`.
+- Windows 10/11 for the WPF client. The API and React development client are cross-platform.
+
+## Quick Start
+
+Install dependencies once from the repository root:
+
 ```powershell
 dotnet restore "Super Dentist.sln"
 Push-Location src/SuperDentist.Web
@@ -78,68 +118,88 @@ npm ci
 Pop-Location
 ```
 
-Start the API and React dashboard together:
+Start the API and React development server together on Windows:
+
 ```powershell
 powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\start-dev.ps1
 ```
 
-The dependency-free cross-platform alternative is:
+Cross-platform launcher:
+
 ```shell
 node scripts/start-dev.mjs
 ```
 
-Both launchers verify required tools, build the API, start only the API and Vite child processes they own, and stop those children on exit. The PowerShell command bypasses signing policy only for that process and does not alter machine policy. They expose:
+Both launchers verify their required tools, build the API, start only the API and Vite processes they own, wait for readiness, and stop those child processes on exit. They do not search for or terminate unrelated processes.
+
+Development URLs:
+
 - Dashboard: `http://localhost:5173`
 - API: `http://localhost:5080`
 - Swagger: `http://localhost:5080/swagger`
 - Health: `http://localhost:5080/health`
 
-Run the WPF write client separately:
-1. `dotnet build "Super Dentist.sln"`
-2. `dotnet run --project src/SuperDentist.App/SuperDentist.App.csproj`
+## Manual Startup
 
-The application project is `SuperDentist.App`. The executable/assembly is branded as `Super Dentist`, so local build output is named `Super Dentist.exe`.
+Start the API from the repository root:
 
-Manual API startup:
-1. `dotnet run --project src/SuperDentist.Api/SuperDentist.Api.csproj`
-2. Open `http://localhost:5080/swagger` or call `http://localhost:5080/health`.
+```powershell
+dotnet run --project src/SuperDentist.Api/SuperDentist.Api.csproj
+```
 
-The development API URL is defined in `src/SuperDentist.Api/Properties/launchSettings.json` and can be overridden with standard ASP.NET Core configuration such as `ASPNETCORE_URLS`. Development CORS permits only `http://localhost:5173` by default; production does not enable a permissive CORS policy.
+Start the web client in a second terminal:
 
-Manual React startup in a second terminal:
-1. `cd src/SuperDentist.Web`
-2. `npm ci`
-3. `npm run dev`
-4. Open `http://localhost:5173`.
+```powershell
+Set-Location src/SuperDentist.Web
+npm run dev
+```
 
-The typed frontend API client defaults to `http://localhost:5080`. Set `VITE_API_BASE_URL` in a local environment or local `.env` file to override it; `.env.example` contains the non-secret development example. Vite environment files other than `.env.example` are ignored.
+Start the WPF write client on Windows:
 
-First run behavior:
-- A local SQLite database is created automatically
-- Schema migrations run before the app starts using the database
-- Demo data is seeded only after migrations complete successfully
+```powershell
+dotnet run --project src/SuperDentist.App/SuperDentist.App.csproj
+```
 
-SQLite and logs:
-- Default DB: `%LOCALAPPDATA%\SuperDentist\superdentist.db`
-- Override DB path: set `Database:Path` in the active App/API configuration or `SUPERDENTIST_DB_PATH`
-- Logs: `%LOCALAPPDATA%\SuperDentist\logs\superdentist.log`
+The API and WPF client use the same default database path. To select a neutral local database explicitly for either process, set `SUPERDENTIST_DB_PATH` before launch:
 
-## 🧪 Testing
+```powershell
+$env:SUPERDENTIST_DB_PATH = Join-Path $PWD "superdentist-demo.db"
+```
+
+Database files are ignored by Git. The default path is `%LOCALAPPDATA%\SuperDentist\superdentist.db`; WPF logs default to `%LOCALAPPDATA%\SuperDentist\logs\superdentist.log`.
+
+## Frontend Configuration
+
+The typed client defaults to `http://localhost:5080`. Override it at development/build time with `VITE_API_BASE_URL`. The committed [`src/SuperDentist.Web/.env.example`](src/SuperDentist.Web/.env.example) contains the non-secret local value; local `.env` files are ignored.
+
+Development CORS is enabled only for origins listed in `src/SuperDentist.Api/appsettings.Development.json`, currently `http://localhost:5173`. Production does not register a permissive fallback policy. CORS is a browser boundary, not authentication.
+
+A static host for a production frontend build must route unknown paths to `index.html` so direct React routes refresh correctly.
+
+## Verification
+
 Run the complete repository verification on Windows:
+
 ```powershell
 powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-all.ps1
 ```
 
-The focused scripts are `scripts/verify-backend.ps1` and `scripts/verify-frontend.ps1`. The backend script restores, performs a Release build with warnings promoted to errors, and runs all .NET tests. The frontend script performs a clean lockfile install, type checking, linting, tests, and a production build.
+Backend verification:
 
-Equivalent backend commands:
 ```powershell
 dotnet restore "Super Dentist.sln"
 dotnet build "Super Dentist.sln" -c Release --no-restore -warnaserror
 dotnet test "Super Dentist.sln" -c Release --no-build --no-restore
 ```
 
-Equivalent frontend commands from `src/SuperDentist.Web`:
+The same backend sequence is available as:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-backend.ps1
+```
+
+Frontend verification from `src/SuperDentist.Web`:
+
 ```powershell
 npm ci
 npm run typecheck
@@ -148,169 +208,125 @@ npm test
 npm run build
 ```
 
-The test suite includes:
-- Application service unit tests using simple fake repositories, proving business use cases can be tested without SQLite.
-- Integration-style appointment tests that run against isolated temporary SQLite databases.
-- Deterministic, test-owned doctors, patients, treatments, and appointments instead of production demo seed data.
-- Migration tests for empty databases, baseline upgrades, idempotency, foreign-key enforcement, restrictive deletes, audit timestamps, and the version 3 audit trail.
-- Audit tests for actor and UTC capture, deterministic JSON snapshots, filtering, newest-first ordering, transaction rollback, initialization idempotency, and persistence across reopened connections.
-- API integration tests that start the real ASP.NET Core host against isolated, migrated temporary SQLite databases.
-- SQLite-free dashboard aggregation tests with deterministic service fakes.
-- Frontend behavior tests for dashboard states, retry, search, filters, audit JSON inspection, and pagination with the API boundary mocked.
+The same frontend sequence is available as:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-frontend.ps1
+```
+
+Backend tests use deterministic test-owned data and isolated temporary databases initialized by the production migration mechanism. Application service and dashboard tests also use simple fakes to prove they can run without SQLite. Frontend tests mock the centralized API boundary and exercise loading, success, empty, retry, filtering, pagination, audit inspection, and modal keyboard behavior.
 
 ## Continuous Integration
-`.github/workflows/ci.yml` runs for pushes to `main`, pull requests targeting `main`, and manual dispatches. Its independent jobs are:
-- Backend on Windows: cached restore, warning-as-error Release build, .NET tests, and a published API artifact.
-- Frontend on Linux: cached `npm ci`, type checking, linting, one-shot tests, production build, and a `dist` artifact.
 
-CI has read-only repository permissions and contains no deployment credentials. Artifacts are verification outputs, not a deployment pipeline.
+[`.github/workflows/ci.yml`](.github/workflows/ci.yml) runs on pushes to `main`, pull requests targeting `main`, and manual dispatches.
 
-## 🧱 Architecture Overview
-Layer diagram:
+- Backend job: Windows, cached NuGet restore, warning-as-error Release build, .NET tests, and published API artifact.
+- Frontend job: Linux, cached lockfile install, type checking, linting, one-shot tests, production build, and published `dist` artifact.
+
+The workflow has read-only repository permissions and no deployment credentials or deployment step.
+
+## API Surface
+
+| Endpoint | Purpose |
+| --- | --- |
+| `GET /api/doctors` | Bounded search and paging |
+| `GET /api/doctors/{id}` | Single doctor or 404 |
+| `GET /api/patients` | Bounded search, doctor filter, and paging |
+| `GET /api/patients/{id}` | Single patient or 404 |
+| `GET /api/appointments` | Bounded text, identifier, and date-range filtering |
+| `GET /api/treatments` | Bounded treatment search and paging |
+| `GET /api/audit` | Bounded, combinable audit filters ordered newest first |
+| `GET /api/dashboard/summary` | Operational metrics and bounded breakdowns |
+| `GET /health` | API and SQLite availability |
+
+The API maps to dedicated DTOs. Doctor salary is not present in doctor responses. Unexpected failures return generic Problem Details without stack traces or internal exception messages, and request logging omits query strings.
+
+## Transactions And Audit
+
+Successful create, update, and delete operations for doctors, patients, treatments, appointments, and patient treatments append exactly one audit entry. Each audited operation uses an Infrastructure-owned transaction:
+
+```text
+WPF command
+  -> Application service and business checks
+  -> entity read/mutation and AuditService append
+  -> one SQLite connection and transaction
+  -> commit, or rollback on persistence/audit failure
 ```
-SuperDentist.Web --REST/JSON--> SuperDentist.Api
 
-SuperDentist.App
-  -> SuperDentist.Application
-  -> SuperDentist.Infrastructure
-  -> SuperDentist.Core
+Update snapshots are built from the stored record before the change and the reloaded persisted record afterward. Create snapshots have no old value; delete snapshots have no new value. Entries record entity type, identifier, operation, `LocalUser`, UTC timestamp, deterministic JSON snapshots, and a correlation ID.
 
-SuperDentist.Api
-  -> SuperDentist.Application
-  -> SuperDentist.Infrastructure
-  -> SuperDentist.Core
+`LocalUser` is a replaceable application actor label, not verified identity. `IAuditRepository` exposes add/search only, while SQLite triggers reject direct audit updates and deletes. There is no audit retention or archival policy.
 
-SuperDentist.Application -> SuperDentist.Core
-SuperDentist.Infrastructure -> SuperDentist.Core
-```
+## Database Migrations
 
-Responsibilities:
-- SuperDentist.App: WPF Views/ViewModels, composition root, DI host, navigation, validation, logging setup, user messaging, and read-only audit history
-- SuperDentist.Api: read-only REST/JSON endpoints, API DTOs, HTTP validation, Swagger, health checks, CORS, and API request/error handling
-- SuperDentist.Web: React/TypeScript read-only dashboard, typed API client, responsive routes, filters, and audit inspection
-- SuperDentist.Application: business use cases, audited entity operations, bounded clinic queries, dashboard aggregation, actor resolution, deterministic snapshot serialization, and audit search
-- SuperDentist.Core: domain entities, audit models/query types, repository/service/transaction contracts, shared results, and options
-- SuperDentist.Infrastructure: SQLite connection and transaction management, schema migrations, demo seeding, audit persistence, and repository implementations
-- SuperDentist.Tests: unit and integration tests
-- SuperDentist.Web tests: Vitest and Testing Library behavior tests with the API boundary mocked
+Infrastructure tracks versions in `SchemaMigrations` and currently applies:
 
-Patterns used:
-- MVVM with `ObservableValidator` and command-based actions
-- Repository + service interfaces for clean boundaries
-- DI for ViewModels, Application services, Infrastructure repositories, and database initialization
-- Application transaction boundary for atomic clinic changes and audit inserts
+1. Baseline clinic schema.
+2. Foreign keys, restrictive update/delete policies, and `CreatedAtUtc` / `UpdatedAtUtc` columns.
+3. Append-only audit table, query indexes, and update/delete rejection triggers.
 
-## Read-only Reporting API
-The API reuses the same Application services, Infrastructure repositories, migrations, and SQLite database as the WPF client. It does not duplicate clinic business rules and exposes no mutation endpoints.
+New and existing databases use the same ordered migration runner. Each migration obtains a write transaction, rechecks whether its version was applied, executes schema SQL and integrity checks, then records the version only before committing. Migration-history creation and adoption of an existing unversioned baseline are atomic, including recovery from an empty history table left by an interrupted older startup.
 
-Endpoints:
-- `GET /api/doctors` and `GET /api/doctors/{id}`
-- `GET /api/patients` and `GET /api/patients/{id}`
-- `GET /api/appointments`
-- `GET /api/treatments`
-- `GET /api/audit`
-- `GET /api/dashboard/summary`
-- `GET /health`
+Initialization never deletes the database file. An unversioned legacy database must contain all baseline tables, and existing relationships must satisfy the new foreign keys; incompatible data causes startup to fail with logs instead of being discarded. Existing rows receive UTC timestamps during version 2. Demo seeding runs only after all migrations succeed and only when no doctors exist.
 
-List endpoints support bounded limits and relevant search, identifier, date-range, actor, entity, and operation filters. The dashboard reports patient and doctor totals, today/upcoming appointments, patient-treatment completion, unpaid treatment value, doctor utilization, treatment usage/value, upcoming appointments, and recent audit activity. Since the current domain has no inactive-doctor flag, all stored doctors are counted as active. Outstanding value means the catalog value of patient-treatment records not marked paid.
+All opened SQLite connections execute `PRAGMA foreign_keys = ON`. Patient-to-doctor, appointment, and patient-treatment relationships use `ON UPDATE RESTRICT` and `ON DELETE RESTRICT` to avoid silent loss of referenced clinic records.
 
-The API returns dedicated response DTOs rather than persistence objects; doctor salary is intentionally omitted because the dashboard does not require staff compensation data. Centralized exception handling returns generic problem details without stack traces or internal exception messages, and request logging excludes query strings to avoid unnecessarily recording filter values.
+## Screenshots
 
-Authentication and authorization are intentionally outside this checkpoint. The API exposes patient and audit data and must be treated as a local/trusted-development service until authenticated access controls are added. Current repository contracts return complete entity lists before Application filtering and paging; response sizes are bounded, but database-side read projections remain a future scalability improvement.
+All captures below come from the real applications using one fresh, ignored, seeded `superdentist-demo.db`.
 
-## Read-only React Dashboard
-`SuperDentist.Web` is a second client alongside WPF. It communicates only through REST/JSON with `SuperDentist.Api`; it has no direct reference or access to Application, Infrastructure, SQLite, or the WPF process.
+### Web Dashboard
 
-Routes:
-- `/`: operational metrics, upcoming appointments, doctor workload, treatment value, and recent audit activity.
-- `/doctors`: bounded searchable doctor directory; salary is not requested or displayed.
-- `/patients`: bounded patient directory with assigned-doctor and treatment-status context.
-- `/appointments`: bounded schedule with text, doctor, patient, and date-range filters.
-- `/audit`: newest-first audit records with combinable filters and read-only before/after JSON inspection.
+| Doctors | Appointments |
+| --- | --- |
+| ![Web doctor directory](docs/screenshots/web/doctors.png) | ![Web appointment schedule](docs/screenshots/web/appointments.png) |
 
-The frontend centralizes HTTP calls, DTOs, ASP.NET Problem Details handling, and request cancellation in `src/api`. Pages include loading, empty, retryable error, responsive table, and keyboard-focus states. Audit timestamps are stored by the API in UTC and displayed in the browser's local time zone with both semantics labeled. Dashboard monetary values are displayed as USD because the current domain model does not yet carry a clinic currency setting.
+| Audit history | Audit details |
+| --- | --- |
+| ![Web audit history](docs/screenshots/web/audit-history.png) | ![Web audit before and after details](docs/screenshots/web/audit-details.png) |
 
-This web client is intentionally read-only. WPF remains the operational write client, and the API exposes no mutation endpoints. Browser refresh and direct routes require a production static host configured to fall back to `index.html`.
+Additional web capture: [patient directory](docs/screenshots/web/patients.png).
 
-## 🗄 Data, Migrations & Seeding
-Schema versioning is managed by the Infrastructure layer with a dedicated `SchemaMigrations` table.
+### WPF Desktop
 
-Current migrations:
-- Version 1: baseline schema matching the original SQLite table layout.
-- Version 2: foreign-key constraints plus `CreatedAtUtc` and `UpdatedAtUtc` audit columns on mutable clinic entities.
-- Version 3: append-only application audit trail with indexes for timestamp, entity, actor, and operation searches.
+| Doctors | Appointments |
+| --- | --- |
+| ![Desktop doctor management](docs/screenshots/desktop/doctors.png) | ![Desktop appointment management](docs/screenshots/desktop/appointments.png) |
 
-Upgrade behavior:
-- New databases are created by running migrations in order.
-- Existing unversioned databases are adopted as version 1, then upgraded incrementally.
-- Existing user databases are not deleted or recreated during normal initialization.
-- Existing rows receive valid UTC timestamp values during the integrity migration.
-- Demo data seeding runs only after migrations succeed and only when the database has no doctors.
+| Today | Audit history |
+| --- | --- |
+| ![Desktop today's appointments](docs/screenshots/desktop/today.png) | ![Desktop audit history](docs/screenshots/desktop/audit-history.png) |
 
-Delete policies:
-- Patient → Doctor: `ON DELETE RESTRICT`
-- Appointment → Patient, Doctor, Treatment: `ON DELETE RESTRICT`
-- PatientTreatment → Patient, Treatment: `ON DELETE RESTRICT`
+Additional desktop captures: [patients](docs/screenshots/desktop/patients.png), [treatments](docs/screenshots/desktop/treatments.png), [patient treatments](docs/screenshots/desktop/patient-treatments.png), and [reports](docs/screenshots/desktop/reports.png).
 
-The restrictive policy prevents silent cascade deletion of medical and scheduling records.
+## Security And Environment Scope
 
-Main entities:
-- Doctor: profile + specialization + salary + audit timestamps
-- Patient: profile + assigned doctor + treatment status + audit timestamps
-- Treatment: catalog of procedures and pricing + audit timestamps
-- Appointment: date/time with doctor + patient + optional treatment + audit timestamps
-- PatientTreatment: treatment status and billing info + audit timestamps
+This repository is intended for local, trusted-environment demonstration:
 
-## Audit Trail
-Successful create, update, and delete operations for Doctors, Patients, Treatments, Appointments, and PatientTreatments produce persistent audit entries. Validation failures and rejected appointment conflicts do not create misleading success records.
+- no authentication or authorization protects the API or dashboard;
+- `LocalUser` is not a secure identity;
+- patient and audit endpoints expose synthetic clinic data to any client that can reach the API;
+- SQLite files and WPF logs are local and are not encrypted, backed up, or centrally monitored by this repository;
+- no claims are made about healthcare regulatory compliance;
+- development CORS restrictions do not replace access control.
 
-Each entry records entity type and identifier, a `Created`, `Updated`, or `Deleted` operation, actor, UTC timestamp, structured JSON before/after snapshots, and a correlation ID.
-
-Snapshot fields:
-- Doctor: Id, FirstName, LastName, Phone, Address, Email, Specialization, Salary.
-- Patient: Id, FirstName, LastName, Phone, Address, Email, Age, TreatmentStatus, DoctorId.
-- Treatment: Number, Type, Price, Tools.
-- Appointment: PatientId, DoctorId, Date, Time, TreatmentNumber.
-- PatientTreatment: PatientId, TreatmentNumber, IsCompleted, IsPaid, StartDate.
-
-Entity persistence timestamps, configuration, connection strings, secrets, logs, exceptions, and stack traces are excluded from snapshots. Audit entries are append-only: the Core repository contract exposes no update/delete operations, and SQLite triggers reject direct updates or deletes.
-
-The audit query API supports entity type, partial entity ID, actor, operation, UTC date range, newest-first ordering, and record limits. The read-only Audit History screen exposes the entity, ID, actor, and operation filters, displays both UTC and local timestamps, and shows the selected before/after JSON.
-
-The current actor provider returns `LocalUser`. This is a replaceable application abstraction for traceability on a single-user desktop installation, not secure identity verification or authentication. A future authentication milestone can replace it with an authenticated user/role provider without changing audit consumers.
-
-The clinic mutation and required audit insert execute in one SQLite transaction. If audit persistence fails, the clinic mutation is rolled back rather than silently succeeding without history.
-## ✅ Quality & Reliability
-- Validation rules: required fields, numeric formats, email format, date/time formats
-- Errors are shown inline; forms reset cleanly after successful saves
-- Global exception handling with clear user messages
-- Migrations run transactionally and are recorded only after success
-- SQLite connections enable `PRAGMA foreign_keys = ON`
-- Logs written to `%LOCALAPPDATA%\SuperDentist\logs\superdentist.log`
-
-## 🧠 What I Learned
-- Refactoring legacy WPF into clean MVVM
-- Designing data layers with clear interfaces
-- Building validation and UX that feels polished
-- Structuring a desktop app for long‑term maintainability
-- Building a reliable data initialization pipeline with logging
-- Creating responsive, accessible layouts in WPF
-- Managing command state and validation lifecycle correctly
-
-## 🔮 Future Improvements
-- Calendar view with drag‑and‑drop scheduling
-- Advanced reporting and export (CSV/PDF)
-- Authenticated users and role-based authorization integrated with the existing actor abstraction
+Do not use real patient information with the current configuration.
 
 ## Current Limitations
-- Authentication and authorization are not implemented; the API and dashboard are for trusted/local evaluation only.
-- `LocalUser` is an audit label, not verified identity.
-- SQLite is appropriate for this single-clinic deployment model, not horizontally scaled multi-node writes.
-- The React client and API are read-only; WPF remains the only write client.
-- Application paging currently follows repository reads rather than database projections.
-- Appointment dates remain legacy strings and use the API host's local date; no clinic time-zone setting exists.
-- Currency presentation currently assumes USD because the domain has no clinic currency configuration.
-- CI publishes verification artifacts but performs no environment deployment.
 
-## 📚 Docs
-- Architecture details: `docs/ARCHITECTURE.md`
+- Repository contracts load complete entity collections before Application filtering and paging; HTTP responses are bounded, but database work is not.
+- SQLite fits the current single-clinic/local-write model and is not intended for horizontally scaled writers.
+- Appointment date and time values remain legacy strings, and dashboard "today" semantics use the API host's local date because no clinic time-zone setting exists.
+- Dashboard currency presentation assumes USD because the domain has no currency configuration.
+- The React client and API are read-only; write workflows require Windows and the WPF client.
+- Audit storage has no retention, export, or archival policy.
+- CI verifies and publishes build artifacts but does not deploy an environment.
+
+## Reasonable Future Improvements
+
+- Add authenticated users and role-based authorization through the existing actor abstraction.
+- Move bounded list filtering, projections, and counts into persistence queries for larger datasets.
+- Replace legacy date/time strings with explicit clinic time-zone semantics through a versioned migration.
+- Add clinic-level currency configuration rather than a frontend assumption.
+- Define backup, restore, audit-retention, and operational recovery procedures.
+- Add browser end-to-end smoke checks to CI against an ephemeral demo database.

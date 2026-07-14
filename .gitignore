@@ -12,8 +12,9 @@ obj/
 # Logs and diagnostics
 *.log
 *.diag
-*.txt
 *.binlog
+*.trx
+/preprocessed.xml
 
 # SQLite database
 *.db
